@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -22,7 +21,7 @@ var DefaultClient = &http.Client{
 	Timeout: time.Second * 30,
 }
 
-func (t downloader) Run(ctx context.Context) error {
+func (t *downloader) Run(ctx context.Context) error {
 	logrus.Debugf("[task] downloader Run: %+v", t)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.url, nil)
@@ -39,8 +38,16 @@ func (t downloader) Run(ctx context.Context) error {
 		logrus.Warnf("[task] 下载失败: resp.statusCode=%v", resp.StatusCode)
 		return fmt.Errorf("下载失败: 状态码=%v", resp.StatusCode)
 	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logrus.Warnf("[task] read resp.Body failed: %v", err)
+		return fmt.Errorf("read resp.Body failed")
+	}
 
-	if err := save(resp.Body, t.filePath, t.fileName); err != nil {
+	if err := save(bytes, t.filePath, t.fileName); err != nil {
 		logrus.Warnf("[task] 文件保存失败: %v", err)
 		return fmt.Errorf("文件保存失败")
 	}
@@ -55,18 +62,12 @@ func NewDownloaderTask(name, path, url string) Task {
 	}
 }
 
-func save(data io.Reader, path, name string) error {
+func save(bytes []byte, path, name string) error {
 	if _, err := os.Stat(path); err != nil {
 		logrus.Debugf("create path: %v", path)
 		if err := os.MkdirAll(path, 0711); err != nil {
 			return fmt.Errorf("create path %v failed", path)
 		}
-	}
-
-	bytes, err := ioutil.ReadAll(data)
-	if err != nil {
-		logrus.Warnf("[task] 读取图片内容时出错: %v", err)
-		return fmt.Errorf("读取图片内容时出错")
 	}
 
 	switch http.DetectContentType(bytes) {
