@@ -50,7 +50,7 @@ func (r *defaultRunner) process(ctx context.Context, task Task) {
 		logrus.Infof("[task] current[%d] process task: %+v", r.successNum, t.fileName)
 		if err := task.Run(ctx); err != nil {
 			time.Sleep(time.Second * 2)
-			r.tasks <- task
+			r.priorityTask <- task
 			return
 		}
 	default:

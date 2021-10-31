@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/yougtao/monker-king/internal/utils"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -18,7 +19,7 @@ type downloader struct {
 }
 
 var DefaultClient = &http.Client{
-	Timeout: time.Second * 30,
+	Timeout: time.Second * 15,
 }
 
 func (t *downloader) Run(ctx context.Context) error {
@@ -29,6 +30,7 @@ func (t *downloader) Run(ctx context.Context) error {
 		logrus.Warnf("[task] new request failed: %v", err)
 		return fmt.Errorf("new request failed: %v", t.url)
 	}
+	req.Header = http.Header{utils.UserAgentKey: []string{utils.RandomUserAgent()}}
 	resp, err := DefaultClient.Do(req)
 	if err != nil {
 		logrus.Warnf("[task] do request failed: %v", err)
