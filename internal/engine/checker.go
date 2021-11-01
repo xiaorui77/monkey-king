@@ -1,12 +1,7 @@
 package engine
 
 import (
-	"fmt"
 	"hash/fnv"
-)
-
-var (
-	ErrAlreadyVisited = fmt.Errorf("the url has been visited")
 )
 
 type Store interface {

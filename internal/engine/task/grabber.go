@@ -7,8 +7,8 @@ import (
 	"net/http"
 )
 
-// parser 是解析类型任务
-type parser struct {
+// 抓取页面类型任务
+type grabber struct {
 	url      string
 	header   http.Header
 	callback Callback
@@ -16,8 +16,8 @@ type parser struct {
 }
 
 // NewParserTask 新建一个爬取任务
-func NewParserTask(ctx context.Context, url string, hdr http.Header, f Callback) *parser {
-	return &parser{
+func NewParserTask(ctx context.Context, url string, hdr http.Header, f Callback) *grabber {
+	return &grabber{
 		url:      url,
 		header:   hdr,
 		callback: f,
@@ -25,9 +25,8 @@ func NewParserTask(ctx context.Context, url string, hdr http.Header, f Callback)
 	}
 }
 
-func (p *parser) Run(ctx context.Context) error {
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, p.url, nil)
+func (p *grabber) Run(ctx context.Context, client *http.Client) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.url, nil)
 	if err != nil {
 		logrus.Warnf("[task] new request failed: %v", err)
 		return fmt.Errorf("new request failed")

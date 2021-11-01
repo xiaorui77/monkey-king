@@ -8,21 +8,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"time"
 )
 
-// downloader 是下载类型任务
+// 下载类型任务
 type downloader struct {
 	fileName string
 	filePath string
 	url      string
 }
 
-var DefaultClient = &http.Client{
-	Timeout: time.Second * 15,
-}
-
-func (t *downloader) Run(ctx context.Context) error {
+func (t *downloader) Run(ctx context.Context, client *http.Client) error {
 	logrus.Debugf("[task] downloader Run: %+v", t)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.url, nil)
@@ -31,7 +26,7 @@ func (t *downloader) Run(ctx context.Context) error {
 		return fmt.Errorf("new request failed: %v", t.url)
 	}
 	req.Header = http.Header{utils.UserAgentKey: []string{utils.RandomUserAgent()}}
-	resp, err := DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		logrus.Warnf("[task] do request failed: %v", err)
 		return fmt.Errorf("[task] do request failed: [%v]%v", http.MethodGet, t.url)
