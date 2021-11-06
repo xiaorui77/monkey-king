@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	Parallelism = 6
+)
+
 type crawlerBrowser struct {
 	priorityTask chan Task
 	tasks        chan Task
@@ -38,6 +42,8 @@ func (r *crawlerBrowser) Run(ctx context.Context) {
 	logrus.Infof("[task] Runner beginning")
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case task := <-r.priorityTask:
 			r.process(ctx, r.DefaultClient, task)
 		default:

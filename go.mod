@@ -10,5 +10,6 @@ require (
 
 require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
+	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	golang.org/x/sys v0.0.0-20210423082822-04245dca01da // indirect
 )

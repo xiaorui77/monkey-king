@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"github.com/yougtao/monker-king/internal/engine/task"
+	"github.com/yougtao/monker-king/internal/storage"
 	"github.com/yougtao/monker-king/internal/utils"
 	"io/ioutil"
 	"net/http"
@@ -11,7 +12,7 @@ import (
 )
 
 type Collector struct {
-	store Store
+	store storage.Store
 	tasks task.Runner
 
 	// 抓取成功后回调
@@ -21,8 +22,13 @@ type Collector struct {
 }
 
 func NewCollector() *Collector {
+	store, err := storage.NewRedisStore("127.0.0.1:6379")
+	if err != nil {
+		logrus.Errorf("new collector failed: %v", err)
+		return nil
+	}
 	return &Collector{
-		store:         NewStore(),
+		store:         store,
 		tasks:         task.NewRunner(),
 		htmlCallbacks: nil,
 	}
