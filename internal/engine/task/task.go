@@ -2,15 +2,53 @@ package task
 
 import (
 	"context"
+	"fmt"
+	"github.com/sirupsen/logrus"
+	"github.com/yougtao/monker-king/internal/utils"
 	"net/http"
+	"net/url"
 )
 
-type Task interface {
-	Run(ctx context.Context, client *http.Client) error
+type Task struct {
+	ID  uint64
+	url *url.URL
+	fun callbackfun
 }
 
-// Runner 是一个运行器
-type Runner interface {
-	Run(ctx context.Context)
-	AddTask(t Task)
+func NewTask(urlRaw string, fun callbackfun) *Task {
+	u, err := url.Parse(urlRaw)
+	if err != nil {
+		logrus.Warnf("[task] new task failed with parse url(%v): %v", urlRaw, err)
+		return nil
+	}
+	return &Task{
+		ID:  0,
+		url: u,
+		fun: fun,
+	}
 }
+
+func (task *Task) Run(ctx context.Context, client *http.Client) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, task.url.String(), nil)
+	if err != nil {
+		logrus.Warnf("[task] The task[%x] failed during the new request: %v", task.ID, err)
+		return fmt.Errorf("new request fail: %v", err)
+	}
+	req.Header.Set(utils.UserAgentKey, utils.RandomUserAgent())
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		logrus.Warnf("[task] The task[%x] failed during the do request: %v", task.ID, err)
+		return fmt.Errorf("do request fail")
+	}
+
+	if resp.StatusCode == http.StatusOK {
+		return task.fun(req, resp)
+	} else {
+		logrus.Warnf("[task] The task[%x] failed with unknown status code[%d]", task.ID, resp.StatusCode)
+		return fmt.Errorf("do request fail with status code[%d]", resp.StatusCode)
+	}
+}
+
+type callbackfun func(req *http.Request, resp *http.Response) error

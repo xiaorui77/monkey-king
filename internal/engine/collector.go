@@ -2,10 +2,10 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/yougtao/monker-king/internal/engine/task"
 	"github.com/yougtao/monker-king/internal/storage"
-	"github.com/yougtao/monker-king/internal/utils"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -58,14 +58,12 @@ func (c *Collector) scrape(ctx context.Context, url, method string, depth int) e
 		return nil
 	}
 
-	hdr := http.Header{utils.UserAgentKey: []string{utils.RandomUserAgent()}}
-
 	// 回调
-	callback := func(req *http.Request, resp *http.Response) {
+	callback := func(req *http.Request, resp *http.Response) error {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			logrus.Debugf("scrape html failed: %v", err)
-			return
+			return fmt.Errorf("scrape html failed")
 		}
 
 		response := &Response{
@@ -80,11 +78,14 @@ func (c *Collector) scrape(ctx context.Context, url, method string, depth int) e
 		}
 
 		// 通过task下载get到页面后通过回调执行
-		logrus.Debugf("[scrape] 下载完成, handle callback handleOnHtml(%v)", response.Request.URL)
+		logrus.Debugf("[scrape] 下载完成, handle callback handleOnHtml[%v]", response.Request.URL)
 		c.handleOnHtml(response)
+		c.store.Visit(url)
+		logrus.Debugf("[scrape] 分析完成, handleOnHtml[%v]", url)
+		return nil
 	}
 
 	logrus.Debugf("[scrape] add Parser Task: %v", url)
-	c.tasks.AddTask(task.NewParserTask(ctx, url, hdr, callback))
+	c.tasks.AddTask(task.NewTask(url, callback), false)
 	return nil
 }

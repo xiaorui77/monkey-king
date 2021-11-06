@@ -2,9 +2,13 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/yougtao/monker-king/internal/engine/task"
+	"github.com/yougtao/monker-king/internal/utils/localfile"
 	"golang.org/x/net/html"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -32,8 +36,19 @@ func (r *Request) Visit(url string) error {
 }
 
 func (r *Request) Download(name, path string, url string) error {
-	t := task.NewDownloaderTask(name, path, url)
-	r.collector.tasks.AddTask(t)
+	save := func(req *http.Request, resp *http.Response) error {
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+
+		bs, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("read resp.Body failed: %v", err)
+		}
+		return localfile.SaveImage(bs, path, name)
+	}
+
+	r.collector.tasks.AddTask(task.NewTask(url, save), true)
 	return nil
 }
 

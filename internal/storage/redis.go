@@ -45,7 +45,7 @@ func (s *RedisStore) IsVisited(url string) bool {
 	hash := strconv.FormatUint(h.Sum64(), 16)
 	res, err := s.client.Get(hash).Result()
 	if err != nil {
-		logrus.Warnf("[store] get visit key url(%v) failed: %v", url, err)
+		logrus.Warnf("[store] get visit key hash[%v] url[%v]  failed: %v", hash, url, err)
 		return false
 	}
 	return res == "true"
