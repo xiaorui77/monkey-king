@@ -11,15 +11,16 @@ import (
 )
 
 // girl
-var girlRe = `body > div:nth-child(6) > div > div.pic > img`
-var pageRe = `body > div:nth-child(6) > div > div.row.col6.clearfix > dl > dt > a`
-var pagingRe = `body > div:nth-child(8) > div > div.pc_pagination > a:nth-child(11)`
+var (
+	girlRe   = `body > div:nth-child(6) > div > div.pic > img`
+	pageRe   = `body > div:nth-child(6) > div > div.row.col6.clearfix > dl > dt > a`
+	pagingRe = `body > div:nth-child(8) > div > div.pc_pagination > a:nth-child(11)`
+)
 
-// var basePath = "D:\\tmp\\226g.net"
-var basePath = "/Users/caiyongtao/226g.net"
+// var basePath = "~/226g.net"
+var basePath = "D:\\tmp\\226g.net"
 
 func main() {
-
 	collector := engine.NewCollector()
 
 	// 单页
@@ -49,7 +50,7 @@ func init() {
 	logrus.SetFormatter(&logrus.TextFormatter{
 		QuoteEmptyFields: true,
 		TimestampFormat:  "2006-01-02 15:03:04",
-		FullTimestamp:    true,
+		FullTimestamp:    false,
 		CallerPrettyfier: func(frame *runtime.Frame) (function string, file string) {
 			//处理文件名
 			fileName := path.Base(frame.File)

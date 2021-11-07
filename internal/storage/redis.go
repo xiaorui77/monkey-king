@@ -34,8 +34,8 @@ func (s *RedisStore) Visit(url string) {
 	_, _ = h.Write([]byte(url))
 	hash := strconv.FormatUint(h.Sum64(), 16)
 
-	if err := s.client.Set(KeyPrefix+hash, "true", 0); err != nil {
-		logrus.Warnf("[storage] set visit key url(%v) failed: %v", url, err)
+	if err := s.client.Set(KeyPrefix+hash, "true", 0).Err(); err != nil {
+		logrus.Warnf("[storage] set visit key[%s] url[%v] failed: %v", KeyPrefix+hash, url, err)
 	}
 }
 
@@ -43,9 +43,9 @@ func (s *RedisStore) IsVisited(url string) bool {
 	h := fnv.New64()
 	_, _ = h.Write([]byte(url))
 	hash := strconv.FormatUint(h.Sum64(), 16)
-	res, err := s.client.Get(hash).Result()
+	res, err := s.client.Get(KeyPrefix + hash).Result()
 	if err != nil {
-		logrus.Warnf("[store] get visit key hash[%v] url[%v]  failed: %v", hash, url, err)
+		logrus.Warnf("[store] get visit key[%s] url[%v]  failed: %v", KeyPrefix+hash, url, err)
 		return false
 	}
 	return res == "true"
