@@ -1,10 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/yougtao/monker-king/internal/engine"
+	"github.com/yougtao/monker-king/internal/utils/wait"
 	"math/rand"
 	"path"
 	"runtime"
@@ -21,6 +21,7 @@ var (
 var basePath = "D:\\tmp\\226g.net"
 
 func main() {
+	_, stopCtx := wait.SetupStopSignal()
 	collector := engine.NewCollector()
 
 	// 单页
@@ -42,7 +43,7 @@ func main() {
 
 	// begin
 	_ = collector.Visit("https://www.226g.net/pic/toupai/")
-	collector.Run(context.TODO())
+	collector.Run(stopCtx)
 }
 
 func init() {

@@ -7,4 +7,6 @@ const (
 type Store interface {
 	Visit(url string)
 	IsVisited(url string) bool
+
+	PersistenceTasks(host string, tasks interface{}) error
 }

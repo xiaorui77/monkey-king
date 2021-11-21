@@ -1,11 +1,16 @@
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
 	"hash/fnv"
 	"strconv"
+)
+
+const (
+	PersistenceTasksKey = "PersistenceTasks"
 )
 
 type RedisStore struct {
@@ -49,4 +54,19 @@ func (s *RedisStore) IsVisited(url string) bool {
 		return false
 	}
 	return res == "true"
+}
+
+// PersistenceTasks 持久化tasks，以host保存
+func (s *RedisStore) PersistenceTasks(host string, tasks interface{}) error {
+	bytes, err := json.Marshal(tasks)
+	if err != nil {
+		logrus.Errorf("[store] presistence tasks failed on json.Marshal: %v", err)
+		return fmt.Errorf("presistence tasks failed")
+	}
+	logrus.Debugf("[store] presistence tasks, data=%v", bytes)
+	if err := s.client.HSet(KeyPrefix+PersistenceTasksKey, host, bytes).Err(); err != nil {
+		logrus.Errorf("[store] presistence tasks failed on save to redis: %v", err)
+		return fmt.Errorf("presistence tasks failed")
+	}
+	return nil
 }

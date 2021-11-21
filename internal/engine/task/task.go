@@ -12,10 +12,10 @@ import (
 type Task struct {
 	ID  uint64
 	url *url.URL
-	fun callbackfun
+	fun callback
 }
 
-func NewTask(urlRaw string, fun callbackfun) *Task {
+func NewTask(urlRaw string, fun callback) *Task {
 	u, err := url.Parse(urlRaw)
 	if err != nil {
 		logrus.Warnf("[task] new task failed with parse url(%v): %v", urlRaw, err)
@@ -51,4 +51,5 @@ func (task *Task) Run(ctx context.Context, client *http.Client) error {
 	}
 }
 
-type callbackfun func(req *http.Request, resp *http.Response) error
+// 请求完成后回调
+type callback func(req *http.Request, resp *http.Response) error

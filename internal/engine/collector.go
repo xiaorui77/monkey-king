@@ -29,7 +29,7 @@ func NewCollector() *Collector {
 	}
 	return &Collector{
 		store:         store,
-		tasks:         task.NewRunner(),
+		tasks:         task.NewRunner(store),
 		htmlCallbacks: nil,
 	}
 }
