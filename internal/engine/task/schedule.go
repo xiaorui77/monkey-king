@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/math"
+	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/storage"
-	"github.com/yougtao/monker-king/internal/utils/math"
-	"github.com/yougtao/monker-king/internal/utils/wait"
 	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
@@ -77,7 +77,7 @@ func (r *crawlerBrowser) Run(ctx context.Context) {
 	r.ctx = ctx
 
 	<-ctx.Done()
-	wait.WaitWhen(func() bool { return len(r.queue) == 0 })
+	wait.WaitUntil(func() bool { return len(r.queue) == 0 })
 }
 
 func (r *crawlerBrowser) AddTask(t *Task, priority bool) {
@@ -109,7 +109,7 @@ func (r *crawlerBrowser) AddTask(t *Task, priority bool) {
 func (r *crawlerBrowser) processHost(host string) {
 	var wg sync.WaitGroup
 	for i := 0; i < Parallelism; i++ {
-		wait.WaitWhen(func() bool { return r.ctx != nil })
+		wait.WaitUntil(func() bool { return r.ctx != nil })
 		go r.process(&wg, host, i)
 		wg.Add(1)
 	}

@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/engine"
-	"github.com/yougtao/monker-king/internal/utils/wait"
 	"math/rand"
 	"path"
 	"runtime"
@@ -17,8 +17,9 @@ var (
 	pagingRe = `body > div:nth-child(8) > div > div.pc_pagination > a:nth-child(11)`
 )
 
-// var basePath = "~/226g.net"
-var basePath = "D:\\tmp\\226g.net"
+var basePath = "~/226g.net"
+
+//var basePath = "D:\\tmp\\226g.net"
 
 func main() {
 	_, stopCtx := wait.SetupStopSignal()
@@ -42,7 +43,7 @@ func main() {
 	})
 
 	// begin
-	_ = collector.Visit("https://www.226g.net/pic/toupai/")
+	_ = collector.Visit("https://www.228n.net/pic/toupai/")
 	collector.Run(stopCtx)
 }
 
