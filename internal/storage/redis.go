@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis"
-	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/logx"
 	"hash/fnv"
 	"strconv"
 )
@@ -24,10 +24,10 @@ func NewRedisStore(addr string) (s *RedisStore, err error) {
 		Addr: addr,
 	})
 	if _, err := c.Ping().Result(); err != nil {
-		logrus.Errorf("[store] connect to redis-cluster %v failed: %v", addr, err)
+		logx.Errorf("[store] connect to redis-cluster %v failed: %v", addr, err)
 		return nil, fmt.Errorf("connect redis failed")
 	}
-	logrus.Infof("[store] connect to redis-cluster %v successfully", addr)
+	logx.Infof("[store] connect to redis-cluster %v successfully", addr)
 	return &RedisStore{
 		addr:   addr,
 		client: c,
@@ -40,7 +40,7 @@ func (s *RedisStore) Visit(url string) {
 	hash := strconv.FormatUint(h.Sum64(), 16)
 
 	if err := s.client.Set(KeyPrefix+hash, "true", 0).Err(); err != nil {
-		logrus.Warnf("[storage] set visit key[%s] url[%v] failed: %v", KeyPrefix+hash, url, err)
+		logx.Warnf("[storage] set visit key[%s] url[%v] failed: %v", KeyPrefix+hash, url, err)
 	}
 }
 
@@ -50,7 +50,7 @@ func (s *RedisStore) IsVisited(url string) bool {
 	hash := strconv.FormatUint(h.Sum64(), 16)
 	res, err := s.client.Get(KeyPrefix + hash).Result()
 	if err != nil {
-		logrus.Warnf("[store] get visit key[%s] url[%v]  failed: %v", KeyPrefix+hash, url, err)
+		logx.Warnf("[store] get visit key[%s] url[%v]  failed: %v", KeyPrefix+hash, url, err)
 		return false
 	}
 	return res == "true"
@@ -60,12 +60,12 @@ func (s *RedisStore) IsVisited(url string) bool {
 func (s *RedisStore) PersistenceTasks(host string, tasks interface{}) error {
 	bytes, err := json.Marshal(tasks)
 	if err != nil {
-		logrus.Errorf("[store] presistence tasks failed on json.Marshal: %v", err)
+		logx.Errorf("[store] presistence tasks failed on json.Marshal: %v", err)
 		return fmt.Errorf("presistence tasks failed")
 	}
-	logrus.Debugf("[store] presistence tasks, data=%v", bytes)
+	logx.Debugf("[store] presistence tasks, data=%v", bytes)
 	if err := s.client.HSet(KeyPrefix+PersistenceTasksKey, host, bytes).Err(); err != nil {
-		logrus.Errorf("[store] presistence tasks failed on save to redis: %v", err)
+		logx.Errorf("[store] presistence tasks failed on save to redis: %v", err)
 		return fmt.Errorf("presistence tasks failed")
 	}
 	return nil

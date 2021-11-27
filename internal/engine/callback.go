@@ -3,7 +3,7 @@ package engine
 import (
 	"bytes"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/logx"
 )
 
 type HtmlCallback func(element *HTMLElement)
@@ -15,7 +15,7 @@ type HtmlCallbackContainer struct {
 func (c *Collector) handleOnHtml(resp *Response) {
 	doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(resp.Body))
 	if err != nil {
-		logrus.Debugf("parse html to document failed: %v", err)
+		logx.Debugf("parse html to document failed: %v", err)
 		return
 	}
 	for _, callback := range c.htmlCallbacks {

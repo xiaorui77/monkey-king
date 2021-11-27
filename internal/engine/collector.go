@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/monker-king/internal/engine/task"
 	"github.com/yougtao/monker-king/internal/storage"
 	"io/ioutil"
@@ -24,7 +24,7 @@ type Collector struct {
 func NewCollector() *Collector {
 	store, err := storage.NewRedisStore("127.0.0.1:6379")
 	if err != nil {
-		logrus.Errorf("new collector failed: %v", err)
+		logx.Errorf("new collector failed: %v", err)
 		return nil
 	}
 	return &Collector{
@@ -62,7 +62,7 @@ func (c *Collector) scrape(ctx context.Context, url, method string, depth int) e
 	callback := func(req *http.Request, resp *http.Response) error {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			logrus.Debugf("scrape html failed: %v", err)
+			logx.Debugf("scrape html failed: %v", err)
 			return fmt.Errorf("scrape html failed")
 		}
 
@@ -78,14 +78,14 @@ func (c *Collector) scrape(ctx context.Context, url, method string, depth int) e
 		}
 
 		// 通过task下载get到页面后通过回调执行
-		logrus.Debugf("[scrape] 下载完成, handle callback handleOnHtml[%v]", response.Request.URL)
+		logx.Debugf("[scrape] 下载完成, handle callback handleOnHtml[%v]", response.Request.URL)
 		c.handleOnHtml(response)
 		c.store.Visit(url)
-		logrus.Debugf("[scrape] 分析完成, handleOnHtml[%v]", url)
+		logx.Debugf("[scrape] 分析完成, handleOnHtml[%v]", url)
 		return nil
 	}
 
-	logrus.Debugf("[scrape] add Parser Task: %v", url)
+	logx.Debugf("[scrape] add Parser Task: %v", url)
 	c.tasks.AddTask(task.NewTask(url, callback), false)
 	return nil
 }

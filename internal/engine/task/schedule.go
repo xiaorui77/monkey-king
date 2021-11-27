@@ -3,7 +3,7 @@ package task
 import (
 	"context"
 	"encoding/json"
-	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/goutils/math"
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/storage"
@@ -24,17 +24,17 @@ type taskGrads struct {
 }
 
 func (s taskGrads) MarshalJSON() ([]byte, error) {
-	logrus.Debugf("MarshalJson: %v", s)
+	logx.Debugf("MarshalJson: %v", s)
 	data := map[string][]Task{}
 	if len(s.priority) != 0 {
-		logrus.Debugf("MarshalJson for from chan: %+v", s.priority)
+		logx.Debugf("MarshalJson for from chan: %+v", s.priority)
 		data["priority"] = closeChannelAndGet(s.priority)
-		logrus.Debugf("MarshalJson priority data finish：%v", data["priority"])
+		logx.Debugf("MarshalJson priority data finish：%v", data["priority"])
 	}
 	if len(s.normal) != 0 {
 		data["normal"] = closeChannelAndGet(s.normal)
 	}
-	logrus.Debugf("[task] chan data to map data: %v", data)
+	logx.Debugf("[task] chan data to map data: %v", data)
 	return json.Marshal(data)
 }
 
@@ -58,7 +58,7 @@ type crawlerBrowser struct {
 func NewRunner(store storage.Store) Runner {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		logrus.Errorf("new cookiejar failed: %v", err)
+		logx.Errorf("new cookiejar failed: %v", err)
 		return nil
 	}
 	return &crawlerBrowser{
@@ -116,9 +116,9 @@ func (r *crawlerBrowser) processHost(host string) {
 
 	wg.Wait()
 	// 持久化
-	logrus.Infof("[task] The processHost[%s] had been finished, will be persistence data", host)
+	logx.Infof("[task] The processHost[%s] had been finished, will be persistence data", host)
 	if err := r.store.PersistenceTasks(host, r.queue[host]); err != nil {
-		logrus.Errorf("[task] stop precessHost[%s] failed: %v", host, err)
+		logx.Errorf("[task] stop precessHost[%s] failed: %v", host, err)
 		time.Sleep(time.Second * 30)
 	}
 	delete(r.queue, host)
@@ -129,31 +129,31 @@ func (r *crawlerBrowser) process(wg *sync.WaitGroup, host string, index int) {
 	for {
 		select {
 		case <-r.ctx.Done():
-			logrus.Infof("[task] The process-%d[%s] will be cancel", index, host)
+			logx.Infof("[task] The process-%d[%s] will be cancel", index, host)
 			wg.Done()
 			return
 		default:
 			select {
 			case task := <-r.queue[host].priority:
 				last = time.Now()
-				logrus.Infof("[task] The task[%x] begin to run, url: %s", task.ID, task.url)
+				logx.Infof("[task] The task[%x] begin to run, url: %s", task.ID, task.url)
 				if err := task.Run(r.ctx, r.client); err != nil {
-					logrus.Warnf("[task] The task[%x] run failed(try again after): %v", task.ID, err)
+					logx.Warnf("[task] The task[%x] run failed(try again after): %v", task.ID, err)
 					r.queue[host].priority <- task
 					continue
 				}
-				logrus.Infof("[task] The task[%x] done.", task.ID)
+				logx.Infof("[task] The task[%x] done.", task.ID)
 			default:
 				select {
 				case task := <-r.queue[host].normal:
 					last = time.Now()
-					logrus.Infof("[task] The task[%x] begin to run", task.ID)
+					logx.Infof("[task] The task[%x] begin to run", task.ID)
 					if err := task.Run(r.ctx, r.client); err != nil {
-						logrus.Warnf("[task] The task[%x] run failed(try again after): %v", task.ID, err)
+						logx.Warnf("[task] The task[%x] run failed(try again after): %v", task.ID, err)
 						r.queue[host].normal <- task
 						continue
 					}
-					logrus.Infof("[task] The task[%x] done.", task.ID)
+					logx.Infof("[task] The task[%x] done.", task.ID)
 					time.Sleep(time.Second * 10)
 				default:
 					sub := time.Now().Sub(last)

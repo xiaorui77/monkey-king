@@ -5,8 +5,8 @@ go 1.17
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/sirupsen/logrus v1.7.0
-	github.com/yougtao/goutils v0.0.0-20211121144525-dc998993de31
+	github.com/sirupsen/logrus v1.8.1
+	github.com/yougtao/goutils v0.0.0-20211127182619-c2f650d08dd1
 	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8
 )
 
