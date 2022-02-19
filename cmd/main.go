@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/goutils/wait"
+	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine"
 	"math/rand"
 	"path"
@@ -23,7 +25,13 @@ var basePath = "~/226g.net"
 
 func main() {
 	_, stopCtx := wait.SetupStopSignal()
-	collector := engine.NewCollector()
+
+	conf := config.InitConfig()
+	collector, err := engine.NewCollector(conf)
+	if err != nil {
+		logx.Fatalf("[engine] create collector failed: %v", err)
+		return
+	}
 
 	// 单页
 	collector.OnHTML(girlRe, func(e *engine.HTMLElement) {

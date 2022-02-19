@@ -3,6 +3,7 @@ module github.com/yougtao/monker-king
 go 1.17
 
 require (
+
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/sirupsen/logrus v1.8.1

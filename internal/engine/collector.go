@@ -2,8 +2,10 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/yougtao/goutils/logx"
+	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine/task"
 	"github.com/yougtao/monker-king/internal/storage"
 	"io/ioutil"
@@ -12,8 +14,12 @@ import (
 )
 
 type Collector struct {
-	store storage.Store
-	tasks task.Runner
+	config *config.Config
+	store  storage.Store
+	tasks  task.Runner
+
+	// visited list
+	visitedList map[string]bool
 
 	// 抓取成功后回调
 	register sync.Mutex
@@ -21,17 +27,18 @@ type Collector struct {
 	htmlCallbacks []HtmlCallbackContainer
 }
 
-func NewCollector() *Collector {
+func NewCollector(config *config.Config) (*Collector, error) {
 	store, err := storage.NewRedisStore("127.0.0.1:6379")
 	if err != nil {
 		logx.Errorf("new collector failed: %v", err)
-		return nil
+		return nil, errors.New("connect redis failed")
 	}
 	return &Collector{
+		config:        config,
 		store:         store,
 		tasks:         task.NewRunner(store),
 		htmlCallbacks: nil,
-	}
+	}, nil
 }
 
 func (c *Collector) Run(ctx context.Context) {
@@ -54,7 +61,7 @@ func (c *Collector) OnHTML(selector string, fun HtmlCallback) *Collector {
 
 // 抓取网页, 目前仅支持GET
 func (c *Collector) scrape(ctx context.Context, url, method string, depth int) error {
-	if c.store.IsVisited(url) {
+	if c.isVisited(url) {
 		return nil
 	}
 
@@ -88,4 +95,12 @@ func (c *Collector) scrape(ctx context.Context, url, method string, depth int) e
 	logx.Debugf("[scrape] add Parser Task: %v", url)
 	c.tasks.AddTask(task.NewTask(url, callback), false)
 	return nil
+}
+
+func (c *Collector) isVisited(url string) bool {
+	b, ok := c.visitedList[url]
+	if ok {
+		return b
+	}
+	return false
 }
