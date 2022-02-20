@@ -8,8 +8,10 @@ import (
 	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine/task"
 	"github.com/yougtao/monker-king/internal/storage"
+	"github.com/yougtao/monker-king/internal/view"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"sync"
 )
 
@@ -20,6 +22,9 @@ type Collector struct {
 
 	// visited list
 	visitedList map[string]bool
+
+	// ui
+	ui *view.AppUI
 
 	// 抓取成功后回调
 	register sync.Mutex
@@ -33,15 +38,25 @@ func NewCollector(config *config.Config) (*Collector, error) {
 		logx.Errorf("new collector failed: %v", err)
 		return nil, errors.New("connect redis failed")
 	}
-	return &Collector{
-		config:        config,
-		store:         store,
-		tasks:         task.NewRunner(store),
+
+	c := &Collector{
+		config: config,
+		store:  store,
+		tasks:  task.NewRunner(store),
+
+		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
-	}, nil
+
+		ui: view.NewUI(),
+	}
+
+	c.ui.Init(c.Visit)
+
+	return c, nil
 }
 
 func (c *Collector) Run(ctx context.Context) {
+	go c.ui.Run(ctx)
 	c.tasks.Run(ctx)
 }
 
@@ -60,8 +75,8 @@ func (c *Collector) OnHTML(selector string, fun HtmlCallback) *Collector {
 }
 
 // 抓取网页, 目前仅支持GET
-func (c *Collector) scrape(ctx context.Context, url, method string, depth int) error {
-	if c.isVisited(url) {
+func (c *Collector) scrape(ctx context.Context, urlRaw, method string, depth int) error {
+	if c.isVisited(urlRaw) {
 		return nil
 	}
 
@@ -87,14 +102,34 @@ func (c *Collector) scrape(ctx context.Context, url, method string, depth int) e
 		// 通过task下载get到页面后通过回调执行
 		logx.Debugf("[scrape] 下载完成, handle callback handleOnHtml[%v]", response.Request.URL)
 		c.handleOnHtml(response)
-		c.store.Visit(url)
-		logx.Debugf("[scrape] 分析完成, handleOnHtml[%v]", url)
+		c.recordVisit(urlRaw)
+		logx.Debugf("[scrape] 分析完成, handleOnHtml[%v]", urlRaw)
 		return nil
 	}
 
-	logx.Debugf("[scrape] add Parser Task: %v", url)
-	c.tasks.AddTask(task.NewTask(url, callback), false)
+	u, err := url.Parse(urlRaw)
+	if err != nil {
+		logx.Warnf("[task] new task failed with parse url(%v): %v", urlRaw, err)
+		return errors.New("未能识别的URL")
+	}
+	c.AddTask(task.NewTask(u, callback))
 	return nil
+}
+
+func (c *Collector) AddTask(t *task.Task) {
+	if t == nil {
+		return
+	}
+	logx.Debugf("[scrape] add Parser Task: %v", t.Url.Path)
+	c.ui.AddTaskRow(t)
+	c.tasks.AddTask(t, false)
+}
+
+func (c *Collector) recordVisit(url string) {
+	if c.config.Persistent {
+		c.store.Visit(url)
+	}
+	c.visitedList[url] = true
 }
 
 func (c *Collector) isVisited(url string) bool {

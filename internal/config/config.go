@@ -1,11 +1,11 @@
 package config
 
 type Config struct {
-	persistent bool
+	Persistent bool
 }
 
 func InitConfig() *Config {
 	return &Config{
-		persistent: false,
+		Persistent: false,
 	}
 }

@@ -89,7 +89,7 @@ func (r *crawlerBrowser) AddTask(t *Task, priority bool) {
 		t.ID = rand.Uint64()
 	}
 
-	host := t.url.Host
+	host := t.Url.Host
 	if _, ok := r.queue[host]; !ok {
 		r.queue[host] = taskGrads{
 			priority: make(chan *Task, 100),
@@ -136,7 +136,7 @@ func (r *crawlerBrowser) process(wg *sync.WaitGroup, host string, index int) {
 			select {
 			case task := <-r.queue[host].priority:
 				last = time.Now()
-				logx.Infof("[task] The task[%x] begin to run, url: %s", task.ID, task.url)
+				logx.Infof("[task] The task[%x] begin to run, url: %s", task.ID, task.Url)
 				if err := task.Run(r.ctx, r.client); err != nil {
 					logx.Warnf("[task] The task[%x] run failed(try again after): %v", task.ID, err)
 					r.queue[host].priority <- task

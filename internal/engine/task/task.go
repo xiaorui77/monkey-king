@@ -11,25 +11,20 @@ import (
 
 type Task struct {
 	ID  uint64
-	url *url.URL
+	Url *url.URL
 	fun callback
 }
 
-func NewTask(urlRaw string, fun callback) *Task {
-	u, err := url.Parse(urlRaw)
-	if err != nil {
-		logx.Warnf("[task] new task failed with parse url(%v): %v", urlRaw, err)
-		return nil
-	}
+func NewTask(u *url.URL, fun callback) *Task {
 	return &Task{
 		ID:  0,
-		url: u,
+		Url: u,
 		fun: fun,
 	}
 }
 
 func (task *Task) Run(ctx context.Context, client *http.Client) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, task.url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, task.Url.String(), nil)
 	if err != nil {
 		logx.Warnf("[task] The task[%x] failed during the new request: %v", task.ID, err)
 		return fmt.Errorf("new request fail: %v", err)
