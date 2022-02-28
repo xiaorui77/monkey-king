@@ -39,19 +39,18 @@ func NewCollector(config *config.Config) (*Collector, error) {
 		return nil, errors.New("connect redis failed")
 	}
 
+	runner := task.NewRunner(store)
 	c := &Collector{
 		config: config,
 		store:  store,
-		tasks:  task.NewRunner(store),
+		tasks:  runner,
 
 		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
 
 		ui: view.NewUI(),
 	}
-
-	c.ui.Init(c.Visit)
-
+	c.ui.Init(c.Visit, runner)
 	return c, nil
 }
 

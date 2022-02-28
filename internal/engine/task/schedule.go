@@ -55,7 +55,7 @@ type crawlerBrowser struct {
 	store storage.Store
 }
 
-func NewRunner(store storage.Store) Runner {
+func NewRunner(store storage.Store) *crawlerBrowser {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		logx.Errorf("new cookiejar failed: %v", err)
@@ -103,6 +103,19 @@ func (r *crawlerBrowser) AddTask(t *Task, priority bool) {
 	} else {
 		r.queue[host].normal <- t
 	}
+}
+
+func (r *crawlerBrowser) GetColumns() int {
+	return 4
+}
+
+func (r *crawlerBrowser) GetRows() int {
+	return len(r.queue)
+}
+
+func (r *crawlerBrowser) GetRow(row int) []string {
+	// todo:
+	return nil
 }
 
 // 开启一个新hostname(url)的处理过程, 并守护该处理过程

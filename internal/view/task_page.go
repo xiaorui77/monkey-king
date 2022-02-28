@@ -9,27 +9,33 @@ import (
 
 type TaskPage struct {
 	*tview.Table
+
+	data TableData
 }
 
 func NewTaskPage() *TaskPage {
-	table := tview.NewTable()
-	table.SetSelectable(true, false)
+	return &TaskPage{
+		Table: tview.NewTable(),
+	}
+}
 
-	table.SetCell(0, 0, &tview.TableCell{
+func (t *TaskPage) Init(data TableData) {
+	t.Table.SetSelectable(true, false)
+	t.SetCell(0, 0, &tview.TableCell{
 		Text:            "Name",
 		Color:           tcell.ColorGreen,
 		BackgroundColor: tcell.ColorFireBrick,
 	})
-	table.SetCell(0, 1, &tview.TableCell{
+	t.SetCell(0, 1, &tview.TableCell{
 		Text:            "URL",
 		Color:           tcell.ColorGreen,
 		BackgroundColor: tcell.ColorFireBrick,
 	})
+	t.SetFixed(1, 0)
+}
 
-	table.SetFixed(1, 0)
-	return &TaskPage{
-		table,
-	}
+func (t *TaskPage) Name() string {
+	return "Task"
 }
 
 func (t *TaskPage) AddRow(task *task.Task) {
