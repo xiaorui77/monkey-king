@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/monker-king/internal/config"
-	"github.com/yougtao/monker-king/internal/engine/task"
+	"github.com/yougtao/monker-king/internal/engine/schedule"
 	"github.com/yougtao/monker-king/internal/storage"
 	"github.com/yougtao/monker-king/internal/view"
 	"io/ioutil"
@@ -18,7 +18,7 @@ import (
 type Collector struct {
 	config *config.Config
 	store  storage.Store
-	tasks  task.Runner
+	tasks  schedule.Runner
 
 	// visited list
 	visitedList map[string]bool
@@ -39,7 +39,7 @@ func NewCollector(config *config.Config) (*Collector, error) {
 		return nil, errors.New("connect redis failed")
 	}
 
-	runner := task.NewRunner(store)
+	runner := schedule.NewRunner(store)
 	c := &Collector{
 		config: config,
 		store:  store,
@@ -108,14 +108,14 @@ func (c *Collector) scrape(ctx context.Context, urlRaw, method string, depth int
 
 	u, err := url.Parse(urlRaw)
 	if err != nil {
-		logx.Warnf("[task] new task failed with parse url(%v): %v", urlRaw, err)
+		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	c.AddTask(task.NewTask(u, callback))
+	c.AddTask(schedule.NewTask(u, callback))
 	return nil
 }
 
-func (c *Collector) AddTask(t *task.Task) {
+func (c *Collector) AddTask(t *schedule.Task) {
 	if t == nil {
 		return
 	}

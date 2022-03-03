@@ -1,9 +1,12 @@
 package view
 
-import "github.com/rivo/tview"
+import (
+	"github.com/rivo/tview"
+	"github.com/yougtao/monker-king/internal/view/model"
+)
 
-const TaskPageName = "task"
-const LogsPageName = "logs"
+const TaskPageName = "Tasks"
+const LogsPageName = "Logs"
 
 type PageStack struct {
 	*tview.Pages
@@ -11,7 +14,7 @@ type PageStack struct {
 
 	*Stack
 
-	pages []Primitive
+	pages []Component
 }
 
 func NewPageStack(app *AppUI) *PageStack {
@@ -20,17 +23,19 @@ func NewPageStack(app *AppUI) *PageStack {
 	}
 }
 
-func (p *PageStack) Init(taskData TableData) {
+func (p *PageStack) Init(taskData model.DataProducer) {
 	p.Pages = tview.NewPages()
 	p.Pages.SetBorder(true)
 
-	task := NewTaskPage()
-	task.Init(taskData)
+	task := NewTaskPage(p.app, taskData)
+	task.Init()
 	p.AddPage(TaskPageName, task, true, true)
+	p.pages = append(p.pages, task)
 
 	logs := NewLogsPage(p.app)
 	logs.Init()
 	p.AddPage(LogsPageName, logs, true, true)
+	p.pages = append(p.pages, logs)
 
 	p.ChangePage(TaskPageName)
 }
@@ -45,7 +50,7 @@ func (p *PageStack) ChangePage(name string) {
 	}
 }
 
-func (p *PageStack) GetPage(name string) Primitive {
+func (p *PageStack) GetPage(name string) Component {
 	for _, page := range p.pages {
 		if page.Name() == name {
 			return page
@@ -54,6 +59,6 @@ func (p *PageStack) GetPage(name string) Primitive {
 	return nil
 }
 
-func (p *PageStack) notify(c Primitive) {
-
+func (p *PageStack) notify(c Component) {
+	c.Start()
 }

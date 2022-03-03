@@ -1,22 +1,28 @@
 package view
 
-import "github.com/rivo/tview"
+import (
+	"github.com/rivo/tview"
+	"github.com/yougtao/monker-king/internal/view/model"
+)
 
 type TableViewer interface {
 	tview.Primitive
-	TableData
+	model.Tabular
 }
 
-type TableData interface {
-	GetColumns() int
-	GetRows() int
-
-	GetRow(row int) []string
-}
-
+// 类比 Component
 type Primitive interface {
 	tview.Primitive
 
 	// Name returns the view name.
 	Name() string
 }
+
+type Component interface {
+	Primitive
+
+	Start()
+}
+
+// ------------------------------------------------------------
+// table data

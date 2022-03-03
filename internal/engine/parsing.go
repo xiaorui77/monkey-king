@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/monker-king/internal/engine/task"
+	"github.com/yougtao/monker-king/internal/engine/schedule"
 	"github.com/yougtao/monker-king/internal/utils/localfile"
 	"golang.org/x/net/html"
 	"io/ioutil"
@@ -52,10 +52,10 @@ func (r *Request) Download(name, path string, urlRaw string) error {
 
 	u, err := url.Parse(urlRaw)
 	if err != nil {
-		logx.Warnf("[task] new task failed with parse url(%v): %v", urlRaw, err)
+		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	r.collector.tasks.AddTask(task.NewTask(u, save), true)
+	r.collector.tasks.AddTask(schedule.NewTask(u, save), true)
 	return nil
 }
 

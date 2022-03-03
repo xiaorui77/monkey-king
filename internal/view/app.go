@@ -5,7 +5,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/monker-king/internal/engine/task"
+	"github.com/yougtao/monker-king/internal/engine/schedule"
+	"github.com/yougtao/monker-king/internal/view/model"
 	"os"
 )
 
@@ -27,7 +28,7 @@ func NewUI() *AppUI {
 	}
 }
 
-func (ui *AppUI) Init(fun func(string) error, taskData TableData) {
+func (ui *AppUI) Init(fun func(string) error, taskData model.DataProducer) {
 	ui.main = tview.NewFlex().SetDirection(tview.FlexRow)
 
 	ui.indicator = tview.NewTextView()
@@ -72,7 +73,7 @@ func (ui *AppUI) ResetPrompt() {
 	ui.app.SetFocus(ui.input)
 }
 
-func (ui *AppUI) AddTaskRow(t *task.Task) {
+func (ui *AppUI) AddTaskRow(t *schedule.Task) {
 	// ui.content.AddRow(t)
 }
 

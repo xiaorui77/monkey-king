@@ -22,5 +22,9 @@ func (l *LogsPage) Init() {
 }
 
 func (l *LogsPage) Name() string {
-	return "Logs"
+	return LogsPageName
+}
+
+func (l *LogsPage) Start() {
+
 }
