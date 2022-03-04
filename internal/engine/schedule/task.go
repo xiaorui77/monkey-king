@@ -3,8 +3,8 @@ package schedule
 import (
 	"context"
 	"fmt"
+	"github.com/rfyiamcool/backoff"
 	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/goutils/math"
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/utils"
 	"net/http"
@@ -87,7 +87,6 @@ type TaskQueue struct {
 	sync.RWMutex
 
 	tasks  []*Task
-	index  int
 	offset int
 }
 
@@ -107,6 +106,7 @@ func (tq *TaskQueue) push(task *Task) {
 func (tq *TaskQueue) next() *Task {
 	tq.Lock()
 	defer tq.Unlock()
+	defer func() { tq.offset++ }()
 
 	if tq.offset >= len(tq.tasks) {
 		return nil
@@ -189,7 +189,13 @@ func (d *DomainBrowser) Schedule(ctx context.Context) {
 }
 
 func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index int) {
-	last := time.Now()
+	// 退避
+	sh := backoff.NewBackOff(
+		backoff.WithMinDelay(2*time.Second),
+		backoff.WithMaxDelay(15*time.Second),
+		backoff.WithFactor(2),
+	)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -199,23 +205,24 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 		default:
 			task := d.Next()
 			if task == nil {
-				sub := time.Now().Sub(last)
-				if sub > time.Second*15 {
-					// todo: 发送建议停止信号
-				}
-				time.Sleep(math.MinDuration(time.Second+sub/2, time.Second*15))
+				// 退避
+				sh.SleepCtx(ctx)
+				continue
 			}
-			last = time.Now()
 			logx.Infof("[schedule] The schedule[%x] begin to run, url: %s", task.ID, task.Url)
 			if err := task.Run(ctx, httpClient); err != nil {
 				task.SetState(TaskStateFail)
 				logx.Warnf("[schedule] The schedule[%x] run failed(try again after): %v", task.ID, err)
 				// todo: new add task
+				// 失败后等待时间
+				time.Sleep(time.Second * 5)
 				continue
 			}
+			sh.Reset()
 			task.SetState(TaskStateSuccess)
 			logx.Infof("[schedule] The schedule[%x] done.", task.ID)
-			time.Sleep(time.Second * 10)
+			// 成功时的延迟
+			time.Sleep(time.Second * 5)
 		}
 	}
 }
