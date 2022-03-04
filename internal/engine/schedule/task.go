@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// 请求完成后回调
+type callback func(req *http.Request, resp *http.Response) error
+
 type Task struct {
 	ID    uint64
 	state int
@@ -51,10 +54,11 @@ func NewTask(u *url.URL, fun callback) *Task {
 	}
 }
 
-func (task *Task) Run(ctx context.Context, client *http.Client) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, task.Url.String(), nil)
+func (t *Task) Run(ctx context.Context, client *http.Client) error {
+	t.state = TaskStateRunning
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.Url.String(), nil)
 	if err != nil {
-		logx.Warnf("[schedule] The schedule[%x] failed during the new request: %v", task.ID, err)
+		logx.Warnf("[schedule] The schedule[%x] failed during the new request: %v", t.ID, err)
 		return fmt.Errorf("new request fail: %v", err)
 	}
 	req.Header.Set(utils.UserAgentKey, utils.RandomUserAgent())
@@ -62,20 +66,21 @@ func (task *Task) Run(ctx context.Context, client *http.Client) error {
 	// 发送请求
 	resp, err := client.Do(req)
 	if err != nil {
-		logx.Warnf("[schedule] The schedule[%x] failed during the do request: %v", task.ID, err)
+		logx.Warnf("[schedule] The schedule[%x] failed during the do request: %v", t.ID, err)
 		return fmt.Errorf("do request fail")
 	}
 
 	if resp.StatusCode == http.StatusOK {
-		return task.fun(req, resp)
+		return t.fun(req, resp)
 	} else {
-		logx.Warnf("[schedule] The schedule[%x] failed with unknown status code[%d]", task.ID, resp.StatusCode)
+		logx.Warnf("[schedule] The schedule[%x] failed with unknown status code[%d]", t.ID, resp.StatusCode)
 		return fmt.Errorf("do request fail with status code[%d]", resp.StatusCode)
 	}
 }
 
-// 请求完成后回调
-type callback func(req *http.Request, resp *http.Response) error
+func (t *Task) SetState(state int) {
+	t.state = state
+}
 
 // TaskQueue 任务队列
 type TaskQueue struct {
@@ -86,19 +91,20 @@ type TaskQueue struct {
 	offset int
 }
 
-func NewTaskQueue(tasks []*Task) *TaskQueue {
+func NewTaskQueue() *TaskQueue {
 	return &TaskQueue{
-		tasks: tasks,
+		tasks: []*Task{},
 	}
 }
 
-func (tq *TaskQueue) Push(task *Task) {
+func (tq *TaskQueue) push(task *Task) {
 	tq.Lock()
+	defer tq.Unlock()
+
 	tq.tasks = append(tq.tasks, task)
-	tq.Unlock()
 }
 
-func (tq *TaskQueue) Next() *Task {
+func (tq *TaskQueue) next() *Task {
 	tq.Lock()
 	defer tq.Unlock()
 
@@ -108,7 +114,7 @@ func (tq *TaskQueue) Next() *Task {
 	return tq.tasks[tq.offset]
 }
 
-func (tq *TaskQueue) List() []*Task {
+func (tq *TaskQueue) list() []*Task {
 	return tq.tasks
 }
 
@@ -128,6 +134,8 @@ func (tq *TaskQueue) ListOption(status int) []*Task {
 // --------------------------------------------------
 
 // DomainBrowser 在同一个域名下的调度器
+// 1. 处理同一个Domain下的优先级关系
+// 2. 管理cookie等
 type DomainBrowser struct {
 	domain string
 
@@ -135,29 +143,34 @@ type DomainBrowser struct {
 	normal   *TaskQueue
 }
 
-func NewHostDomain(host string) *DomainBrowser {
+func NewDomainBrowser(host string) *DomainBrowser {
 	return &DomainBrowser{
-		domain: host,
+		domain:   host,
+		priority: NewTaskQueue(),
+		normal:   NewTaskQueue(),
 	}
 }
 
 func (d *DomainBrowser) Push(priority bool, task *Task) {
 	if priority {
-		d.priority.Push(task)
+		d.priority.push(task)
 	} else {
-		d.normal.Push(task)
+		d.normal.push(task)
 	}
 }
 
 func (d *DomainBrowser) Next() *Task {
-	if task := d.priority.Next(); task != nil {
+	if task := d.priority.next(); task != nil {
 		return task
 	}
-	return d.normal.Next()
+	return d.normal.next()
 }
 
 func (d *DomainBrowser) List() []*Task {
-	return d.priority.List()
+	res := make([]*Task, 0, len(d.priority.list())+len(d.normal.list()))
+	res = append(res, d.priority.list()...)
+	res = append(res, d.normal.list()...)
+	return res
 }
 
 // Schedule begin schedule all tasks by multi-thread.
@@ -195,10 +208,12 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 			last = time.Now()
 			logx.Infof("[schedule] The schedule[%x] begin to run, url: %s", task.ID, task.Url)
 			if err := task.Run(ctx, httpClient); err != nil {
+				task.SetState(TaskStateFail)
 				logx.Warnf("[schedule] The schedule[%x] run failed(try again after): %v", task.ID, err)
 				// todo: new add task
 				continue
 			}
+			task.SetState(TaskStateSuccess)
 			logx.Infof("[schedule] The schedule[%x] done.", task.ID)
 			time.Sleep(time.Second * 10)
 		}

@@ -6,11 +6,15 @@ import (
 	"github.com/rivo/tview"
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/monker-king/internal/engine/schedule"
+	"github.com/yougtao/monker-king/internal/engine/types"
 	"github.com/yougtao/monker-king/internal/view/model"
 	"os"
 )
 
 type AppUI struct {
+	// app core layer
+	collector types.Collect
+
 	app  *tview.Application
 	main *tview.Flex
 
@@ -21,21 +25,22 @@ type AppUI struct {
 	actions map[tcell.Key]*KeyAction
 }
 
-func NewUI() *AppUI {
+func NewUI(collector types.Collect) *AppUI {
 	return &AppUI{
-		app:     tview.NewApplication(),
-		actions: map[tcell.Key]*KeyAction{},
+		collector: collector,
+		app:       tview.NewApplication(),
+		actions:   map[tcell.Key]*KeyAction{},
 	}
 }
 
-func (ui *AppUI) Init(fun func(string) error, taskData model.DataProducer) {
+func (ui *AppUI) Init(taskData model.DataProducer) {
 	ui.main = tview.NewFlex().SetDirection(tview.FlexRow)
 
 	ui.indicator = tview.NewTextView()
 	ui.indicator.SetTextAlign(tview.AlignCenter)
 	ui.indicator.SetText("Hello Monkey King")
 
-	ui.input = NewInputWrap(ui, fun)
+	ui.input = NewInputWrap(ui, ui.collector.Visit)
 	ui.input.Init()
 	ui.content = NewPageStack(ui)
 	ui.content.Init(taskData)

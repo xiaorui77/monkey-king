@@ -26,6 +26,7 @@ func (ui *AppUI) keyboardHandler(event *tcell.EventKey) *tcell.EventKey {
 
 func (ui *AppUI) bindKeys() {
 	ui.actions[KeyColon] = NewAction(KeyColon, ui.activateCmd)
+	ui.actions[KeySlash] = NewAction(KeySlash, ui.activateInput)
 	ui.actions[tcell.KeyCtrlC] = NewAction(tcell.KeyCtrlC, ui.exitCmd)
 }
 
@@ -36,10 +37,19 @@ func (ui *AppUI) GetAction(key *tcell.EventKey) (*KeyAction, bool) {
 
 // 激活命令窗口, with the Key ":"
 func (ui *AppUI) activateCmd(evt *tcell.EventKey) *tcell.EventKey {
-	if ui.input.InCmdMode() {
+	if ui.input.IsActivated() {
 		return evt
 	}
-	ui.input.Active(true)
+	ui.input.Active(true, ModeCmd)
+	return nil
+}
+
+// 激活输入窗口, with the Key "/"
+func (ui *AppUI) activateInput(evt *tcell.EventKey) *tcell.EventKey {
+	if ui.input.IsActivated() {
+		return evt
+	}
+	ui.input.Active(true, ModeInput)
 	return nil
 }
 

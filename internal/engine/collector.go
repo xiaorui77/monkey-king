@@ -47,10 +47,10 @@ func NewCollector(config *config.Config) (*Collector, error) {
 
 		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
-
-		ui: view.NewUI(),
 	}
-	c.ui.Init(c.Visit, runner)
+
+	c.ui = view.NewUI(c)
+	c.ui.Init(runner)
 	return c, nil
 }
 
@@ -95,11 +95,10 @@ func (c *Collector) scrape(ctx context.Context, urlRaw, method string, depth int
 				baseURL:   req.URL, // todo: 该怎么设置
 				URL:       req.URL,
 			},
-			Ctx: ctx,
 		}
 
 		// 通过task下载get到页面后通过回调执行
-		logx.Debugf("[scrape] 下载完成, handle callback handleOnHtml[%v]", response.Request.URL)
+		logx.Debugf("[scrape] 下载完成, handle callback handleOnHtml[%v]", urlRaw)
 		c.handleOnHtml(response)
 		c.recordVisit(urlRaw)
 		logx.Debugf("[scrape] 分析完成, handleOnHtml[%v]", urlRaw)
@@ -112,6 +111,7 @@ func (c *Collector) scrape(ctx context.Context, urlRaw, method string, depth int
 		return errors.New("未能识别的URL")
 	}
 	c.AddTask(schedule.NewTask(u, callback))
+	urlRaw = "fdsfsdfds"
 	return nil
 }
 
@@ -120,8 +120,14 @@ func (c *Collector) AddTask(t *schedule.Task) {
 		return
 	}
 	logx.Debugf("[scrape] add Parser Task: %v", t.Url.Path)
-	c.ui.AddTaskRow(t)
+	// c.ui.AddTaskRow(t)
 	c.tasks.AddTask(t, false)
+}
+
+// 对抓取到的页面回调
+func (c *Collector) onScrape(req *http.Request, resp *http.Response) error {
+	// todo: 代迁移
+	return nil
 }
 
 func (c *Collector) recordVisit(url string) {

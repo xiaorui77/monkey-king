@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -20,9 +19,7 @@ type Response struct {
 	// StatusCode is the status code of the Response
 	StatusCode int
 	// Body is the content of the Response
-	Body []byte
-	// Ctx is a context between a Request and a Response
-	Ctx     context.Context
+	Body    []byte
 	Request *Request
 }
 

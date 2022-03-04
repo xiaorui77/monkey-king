@@ -6,11 +6,18 @@ import (
 	"strings"
 )
 
+const (
+	ModeNode = iota
+	ModeCmd
+	ModeInput
+)
+
 type InputWrap struct {
 	*tview.InputField
 	app *AppUI
 
-	model    bool
+	active   bool
+	mode     int
 	callback func(string) error
 }
 
@@ -26,25 +33,20 @@ func (i *InputWrap) Init() {
 	i.SetBorder(true)
 	i.SetInputCapture(i.keyboard)
 
-	i.SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEnter {
-			str := strings.TrimSpace(i.GetText())
-			if str != "" && i.callback(str) == nil {
-				i.SetText("")
-			}
-		}
-	})
+	i.SetDoneFunc(i.OnComplete)
 }
 
-func (i *InputWrap) Active(activate bool) {
+func (i *InputWrap) Active(activate bool, mode int) {
 	if activate {
-		i.model = true
+		i.active = true
+		i.mode = mode
 		i.app.app.SetFocus(i)
 		i.app.main.ResizeItem(i, 3, 1)
 		return
 	}
 
-	i.model = false
+	i.active = false
+	i.mode = ModeNode
 	i.app.app.SetFocus(i.app.content)
 	i.app.main.ResizeItem(i, 0, 0)
 }
@@ -52,14 +54,25 @@ func (i *InputWrap) Active(activate bool) {
 func (i *InputWrap) keyboard(evt *tcell.EventKey) *tcell.EventKey {
 	switch evt.Key() {
 	case tcell.KeyEsc:
-		i.Active(false)
+		i.Active(false, ModeNode)
+	case tcell.KeyEnter:
+		return evt
 	case tcell.KeyRune:
 		return evt
 	}
-	return nil
+	return evt
 }
 
-// InCmdMode returns true if command is active, false otherwise.
-func (i *InputWrap) InCmdMode() bool {
-	return i.model
+func (i *InputWrap) OnComplete(key tcell.Key) {
+	if key == tcell.KeyEnter {
+		str := strings.TrimSpace(i.GetText())
+		if str != "" && i.callback(str) == nil {
+			i.SetText("")
+		}
+	}
+}
+
+// IsActivated returns true if command is active, false otherwise.
+func (i *InputWrap) IsActivated() bool {
+	return i.active
 }

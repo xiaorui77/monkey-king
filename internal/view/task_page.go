@@ -120,7 +120,7 @@ func (t *TaskPage) refresh(ctx context.Context) error {
 	t.AddHeader()
 
 	for i, row := range rows {
-		t.AddRow(i, row.(*model.TaskRow))
+		t.AddRow(i+1, row.(*model.TaskRow))
 	}
 	r, _ := t.GetSelection()
 	t.Select(r, 0)
