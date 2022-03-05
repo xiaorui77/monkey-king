@@ -51,9 +51,9 @@ var PresetStyles = Styles{
 	},
 	Table: Table{
 		FgColor:       "#ffffff",
-		BgColor:       "default",
+		BgColor:       "#80d4fb",
 		CursorFgColor: "#ffffff",
-		CursorBgColor: "#333333",
+		CursorBgColor: "#80d4fb",
 		MarkColor:     "#f72972", // magenta
 		Header: TableHeader{
 			FgColor:     "#ffffff",

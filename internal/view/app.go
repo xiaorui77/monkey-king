@@ -5,9 +5,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/monker-king/internal/engine/schedule"
 	"github.com/yougtao/monker-king/internal/engine/types"
-	"github.com/yougtao/monker-king/internal/view/model"
+	"io"
 	"os"
 )
 
@@ -33,7 +32,7 @@ func NewUI(collector types.Collect) *AppUI {
 	}
 }
 
-func (ui *AppUI) Init(taskData model.DataProducer) {
+func (ui *AppUI) Init() {
 	ui.main = tview.NewFlex().SetDirection(tview.FlexRow)
 
 	ui.indicator = tview.NewTextView()
@@ -43,7 +42,7 @@ func (ui *AppUI) Init(taskData model.DataProducer) {
 	ui.input = NewInputWrap(ui, ui.collector.Visit)
 	ui.input.Init()
 	ui.content = NewPageStack(ui)
-	ui.content.Init(taskData)
+	ui.content.Init()
 
 	ui.main.AddItem(ui.indicator, 1, 1, false)
 	ui.main.AddItem(ui.input, 0, 0, false)
@@ -61,6 +60,11 @@ func (ui *AppUI) Run(_ context.Context) {
 	}
 }
 
+func (ui *AppUI) IsRunning() bool {
+	// todo
+	return true
+}
+
 // BailOut exists the application.
 func (ui *AppUI) BailOut() {
 	// todo: stop main lookup
@@ -69,7 +73,7 @@ func (ui *AppUI) BailOut() {
 }
 
 func (ui *AppUI) GotoPage(name string) {
-	ui.content.ChangePage(name)
+	ui.content.ChangePage(name, true)
 }
 
 // children pages
@@ -78,8 +82,8 @@ func (ui *AppUI) ResetPrompt() {
 	ui.app.SetFocus(ui.input)
 }
 
-func (ui *AppUI) AddTaskRow(t *schedule.Task) {
-	// ui.content.AddRow(t)
+func (ui *AppUI) GetLogsWriter() io.Writer {
+	return ui.content.GetPage(LogsPageName).(*LogsPage).GetModel()
 }
 
 // AsKey converts rune to keyboard key.

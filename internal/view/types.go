@@ -10,7 +10,7 @@ type TableViewer interface {
 	model.Tabular
 }
 
-// 类比 Component
+// Primitive is tview.Primitive wrap
 type Primitive interface {
 	tview.Primitive
 
@@ -18,11 +18,16 @@ type Primitive interface {
 	Name() string
 }
 
-type Component interface {
-	Primitive
-
+// Igniter represents a runnable view.
+type Igniter interface {
+	// Start starts a component.
 	Start()
+
+	// Stop terminates a component.
+	Stop()
 }
 
-// ------------------------------------------------------------
-// table data
+type Component interface {
+	Primitive
+	Igniter
+}

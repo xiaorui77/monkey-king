@@ -7,6 +7,7 @@ import (
 	"github.com/rivo/tview"
 	"github.com/yougtao/monker-king/internal/view/model"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -27,6 +28,9 @@ type TaskPage struct {
 
 	styles *Styles
 	data   model.DataProducer
+
+	cancelFn context.CancelFunc
+	mx       sync.RWMutex
 }
 
 func NewTaskPage(app *AppUI, data model.DataProducer) *TaskPage {
@@ -39,7 +43,12 @@ func NewTaskPage(app *AppUI, data model.DataProducer) *TaskPage {
 }
 
 func (t *TaskPage) Init() {
-	t.Table.SetSelectable(true, false)
+	t.SetFixed(1, 0)
+	t.SetBorder(true)
+	t.SetBorderPadding(0, 0, 1, 1)
+	t.SetSelectable(true, false)
+
+	t.StylesChanged()
 
 	t.header = []model.TaskHeader{
 		{HeaderID},
@@ -85,11 +94,21 @@ func (t *TaskPage) AddRow(i int, task *model.TaskRow) {
 }
 
 func (t *TaskPage) Start() {
-	t.Watch(context.Background())
+	t.Stop()
+
+	ctx := context.Background()
+	ctx, t.cancelFn = context.WithCancel(ctx)
+
+	go t.update(ctx)
 }
 
-func (t *TaskPage) Watch(ctx context.Context) {
-	go t.update(ctx)
+func (t *TaskPage) Stop() {
+	t.mx.Lock()
+	if t.cancelFn != nil {
+		t.cancelFn()
+		t.cancelFn = nil
+	}
+	t.mx.Unlock()
 }
 
 func (t *TaskPage) update(ctx context.Context) {
@@ -99,17 +118,22 @@ func (t *TaskPage) update(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(RefreshRate):
-			RefreshRate = 2 * time.Second
+			RefreshRate = 3 * time.Second
+			t.mx.RLock()
+			fn := t.cancelFn
+			t.mx.RUnlock()
+			if fn == nil || !t.IsRunning() {
+				continue
+			}
+			rows := t.data.GetRows()
 			t.AppUI.app.QueueUpdateDraw(func() {
-				_ = t.refresh(ctx)
+				_ = t.refresh(rows)
 			})
-
 		}
 	}
 }
 
-func (t *TaskPage) refresh(ctx context.Context) error {
-	rows := t.data.GetRows()
+func (t *TaskPage) refresh(rows []interface{}) error {
 	if len(rows) > 0 {
 		_, ok := rows[0].(*model.TaskRow)
 		if !ok {
@@ -117,6 +141,12 @@ func (t *TaskPage) refresh(ctx context.Context) error {
 		}
 	}
 
+	t.Table.Clear()
+
+	// set title
+	t.setTitle(len(rows))
+
+	// set table header
 	t.AddHeader()
 
 	for i, row := range rows {
@@ -137,4 +167,25 @@ func (t *TaskPage) AddHeader() {
 		}
 		t.SetCell(0, i, c)
 	}
+}
+
+func (t *TaskPage) setTitle(total int) {
+	t.Table.SetTitle(fmt.Sprintf(" %s(all) [%d] ", TaskPageName, total))
+}
+
+// ----------- styles -------------
+
+func (t *TaskPage) selectionChanged(r, c int) {
+	if r < 0 {
+		return
+	}
+	if cell := t.GetCell(r, c); cell != nil {
+		t.SetSelectedStyle(tcell.StyleDefault.
+			Foreground(t.styles.Table.CursorFgColor.Color()).
+			Background(cell.Color).
+			Attributes(tcell.AttrBold))
+	}
+}
+
+func (t *TaskPage) StylesChanged() {
 }

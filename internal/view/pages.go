@@ -2,7 +2,7 @@ package view
 
 import (
 	"github.com/rivo/tview"
-	"github.com/yougtao/monker-king/internal/view/model"
+	"strings"
 )
 
 const TaskPageName = "Tasks"
@@ -11,7 +11,6 @@ const LogsPageName = "Logs"
 type PageStack struct {
 	*tview.Pages
 	app *AppUI
-
 	*Stack
 
 	pages []Component
@@ -19,46 +18,55 @@ type PageStack struct {
 
 func NewPageStack(app *AppUI) *PageStack {
 	return &PageStack{
-		app: app,
+		Pages: tview.NewPages(),
+		app:   app,
+		Stack: NewStack(),
 	}
 }
 
-func (p *PageStack) Init(taskData model.DataProducer) {
-	p.Pages = tview.NewPages()
-	p.Pages.SetBorder(true)
-
-	task := NewTaskPage(p.app, taskData)
+func (p *PageStack) Init() {
+	task := NewTaskPage(p.app, p.app.collector.GetDataProducer())
 	task.Init()
-	p.AddPage(TaskPageName, task, true, true)
 	p.pages = append(p.pages, task)
 
 	logs := NewLogsPage(p.app)
 	logs.Init()
-	p.AddPage(LogsPageName, logs, true, true)
 	p.pages = append(p.pages, logs)
 
-	p.ChangePage(TaskPageName)
+	p.Stack.AddListener(p)
+
+	// default page
+	p.ChangePage(TaskPageName, true)
 }
 
-func (p *PageStack) ChangePage(name string) {
+func (p *PageStack) ChangePage(name string, clearStack bool) {
 	page := p.GetPage(name)
 	if page != nil {
-		p.SwitchToPage(page.Name())
-		p.SetTitle(" " + page.Name() + " ")
-
-		p.notify(page)
+		if clearStack {
+			p.Clear()
+		}
+		p.Push(page)
 	}
 }
 
 func (p *PageStack) GetPage(name string) Component {
 	for _, page := range p.pages {
-		if page.Name() == name {
+		if strings.ToLower(page.Name()) == strings.ToLower(name) {
 			return page
 		}
 	}
 	return nil
 }
 
-func (p *PageStack) notify(c Component) {
+// StackPushed notifies a new component was pushed.
+func (p *PageStack) StackPushed(c Component) {
+	p.Pages.AddPage(c.Name(), c, true, true)
+	p.Pages.ShowPage(c.Name())
+
 	c.Start()
+}
+
+// StackPopped notifies a component was removed.
+func (p *PageStack) StackPopped(c, o Component) {
+	p.Pages.RemovePage(c.Name())
 }

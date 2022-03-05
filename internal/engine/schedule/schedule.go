@@ -23,7 +23,7 @@ type Runner interface {
 	AddTask(t *Task, priority bool)
 }
 
-type scheduler struct {
+type Scheduler struct {
 	// default client
 	client    *http.Client
 	cookiejar http.CookieJar
@@ -34,13 +34,13 @@ type scheduler struct {
 	store storage.Store
 }
 
-func NewRunner(store storage.Store) *scheduler {
+func NewRunner(store storage.Store) *Scheduler {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		logx.Errorf("new cookiejar failed: %v", err)
 		return nil
 	}
-	return &scheduler{
+	return &Scheduler{
 		cookiejar: jar,
 		client: &http.Client{
 			Jar:     jar,
@@ -52,14 +52,14 @@ func NewRunner(store storage.Store) *scheduler {
 	}
 }
 
-func (r *scheduler) Run(ctx context.Context) {
+func (r *Scheduler) Run(ctx context.Context) {
 	r.ctx = ctx
 
 	<-ctx.Done()
 	wait.WaitUntil(func() bool { return len(r.queue) == 0 })
 }
 
-func (r *scheduler) AddTask(t *Task, priority bool) {
+func (r *Scheduler) AddTask(t *Task, priority bool) {
 	if t == nil {
 		return
 	}
@@ -77,7 +77,7 @@ func (r *scheduler) AddTask(t *Task, priority bool) {
 	r.queue[host].Push(priority, t)
 }
 
-func (r *scheduler) GetRows() []interface{} {
+func (r *Scheduler) GetRows() []interface{} {
 	now := time.Now()
 	rows := make([]interface{}, 0, len(r.queue))
 	for _, domain := range r.queue {

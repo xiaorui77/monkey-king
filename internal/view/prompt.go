@@ -51,6 +51,11 @@ func (i *InputWrap) Active(activate bool, mode int) {
 	i.app.main.ResizeItem(i, 0, 0)
 }
 
+// IsActivated returns true if command is active, false otherwise.
+func (i *InputWrap) IsActivated() bool {
+	return i.active
+}
+
 func (i *InputWrap) keyboard(evt *tcell.EventKey) *tcell.EventKey {
 	switch evt.Key() {
 	case tcell.KeyEsc:
@@ -64,15 +69,27 @@ func (i *InputWrap) keyboard(evt *tcell.EventKey) *tcell.EventKey {
 }
 
 func (i *InputWrap) OnComplete(key tcell.Key) {
-	if key == tcell.KeyEnter {
-		str := strings.TrimSpace(i.GetText())
-		if str != "" && i.callback(str) == nil {
-			i.SetText("")
-		}
+	if key != tcell.KeyEnter || i.GetText() == "" {
+		return
+	}
+
+	if i.mode == ModeCmd {
+		i.OnCompleteCmd()
+	} else if i.mode == ModeInput {
+		i.OnCompleteInput()
 	}
 }
 
-// IsActivated returns true if command is active, false otherwise.
-func (i *InputWrap) IsActivated() bool {
-	return i.active
+func (i *InputWrap) OnCompleteCmd() {
+	str := strings.TrimSpace(i.GetText())
+	i.app.content.ChangePage(str, true)
+	i.SetText("")
+	i.Active(false, ModeNode)
+}
+
+func (i *InputWrap) OnCompleteInput() {
+	str := strings.TrimSpace(i.GetText())
+	if str != "" && i.app.collector.Visit(str) == nil {
+		i.SetText("")
+	}
 }

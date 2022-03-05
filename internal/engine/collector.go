@@ -8,7 +8,7 @@ import (
 	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine/schedule"
 	"github.com/yougtao/monker-king/internal/storage"
-	"github.com/yougtao/monker-king/internal/view"
+	"github.com/yougtao/monker-king/internal/view/model"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -16,15 +16,12 @@ import (
 )
 
 type Collector struct {
-	config *config.Config
-	store  storage.Store
-	tasks  schedule.Runner
+	config    *config.Config
+	store     storage.Store
+	scheduler schedule.Runner
 
 	// visited list
 	visitedList map[string]bool
-
-	// ui
-	ui *view.AppUI
 
 	// 抓取成功后回调
 	register sync.Mutex
@@ -41,22 +38,18 @@ func NewCollector(config *config.Config) (*Collector, error) {
 
 	runner := schedule.NewRunner(store)
 	c := &Collector{
-		config: config,
-		store:  store,
-		tasks:  runner,
+		config:    config,
+		store:     store,
+		scheduler: runner,
 
 		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
 	}
-
-	c.ui = view.NewUI(c)
-	c.ui.Init(runner)
 	return c, nil
 }
 
 func (c *Collector) Run(ctx context.Context) {
-	go c.ui.Run(ctx)
-	c.tasks.Run(ctx)
+	c.scheduler.Run(ctx)
 }
 
 func (c *Collector) Visit(url string) error {
@@ -111,7 +104,6 @@ func (c *Collector) scrape(ctx context.Context, urlRaw, method string, depth int
 		return errors.New("未能识别的URL")
 	}
 	c.AddTask(schedule.NewTask(u, callback))
-	urlRaw = "fdsfsdfds"
 	return nil
 }
 
@@ -121,7 +113,7 @@ func (c *Collector) AddTask(t *schedule.Task) {
 	}
 	logx.Debugf("[scrape] add Parser Task: %v", t.Url.Path)
 	// c.ui.AddTaskRow(t)
-	c.tasks.AddTask(t, false)
+	c.scheduler.AddTask(t, false)
 }
 
 // 对抓取到的页面回调
@@ -143,4 +135,9 @@ func (c *Collector) isVisited(url string) bool {
 		return b
 	}
 	return false
+}
+
+func (c *Collector) GetDataProducer() model.DataProducer {
+	d, _ := c.scheduler.(*schedule.Scheduler)
+	return d
 }

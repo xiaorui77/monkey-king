@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine"
+	"github.com/yougtao/monker-king/internal/view"
 	"math/rand"
 )
 
@@ -25,9 +25,7 @@ var basePath = "~/226g.net"
 func main() {
 	_, stopCtx := wait.SetupStopSignal()
 
-	buf := &bytes.Buffer{}
 	logx.SetLevel(logrus.DebugLevel)
-	logx.SetOutput(buf)
 
 	conf := config.InitConfig()
 	collector, err := engine.NewCollector(conf)
@@ -55,5 +53,11 @@ func main() {
 
 	// begin
 	//_ = collector.Visit("https://www.228n.net/pic/toupai/")
+
+	// Running
+	ui := view.NewUI(collector)
+	ui.Init()
+	logx.SetOutput(ui.GetLogsWriter())
+	go ui.Run(stopCtx)
 	collector.Run(stopCtx)
 }
