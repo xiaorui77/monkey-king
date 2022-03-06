@@ -31,6 +31,8 @@ func NewInputWrap(app *AppUI, callback func(string) error) *InputWrap {
 
 func (i *InputWrap) Init() {
 	i.SetBorder(true)
+	i.SetBackgroundColor(tcell.ColorDefault)
+
 	i.SetInputCapture(i.keyboard)
 
 	i.SetDoneFunc(i.OnComplete)
@@ -93,5 +95,6 @@ func (i *InputWrap) OnCompleteInput() {
 	str := strings.TrimSpace(i.GetText())
 	if str != "" && i.app.collector.Visit(str) == nil {
 		i.SetText("")
+		i.Active(false, ModeNode)
 	}
 }

@@ -45,11 +45,12 @@ func (l *LogsPage) Init() {
 	l.SetBorder(true)
 	l.SetDirection(tview.FlexRow)
 	l.SetBorderPadding(0, 0, 1, 1)
+	l.SetBackgroundColor(tcell.ColorDefault)
 
 	l.indicator = tview.NewTextView()
 	l.indicator.SetDynamicColors(true)
 	l.indicator.SetTextColor(tcell.ColorWhite)
-	l.indicator.SetBackgroundColor(tcell.Color(int32(0x69d9ed)))
+	l.indicator.SetBackgroundColor(tcell.ColorBlue)
 	l.indicator.SetTextAlign(tview.AlignCenter)
 	l.updateIndicator()
 	l.Flex.AddItem(l.indicator, 1, 1, false)
@@ -58,6 +59,7 @@ func (l *LogsPage) Init() {
 	l.Flex.AddItem(l.logs, 0, 1, true)
 	l.logs.SetScrollable(true).SetWrap(true).SetRegions(true)
 	l.logs.SetDynamicColors(true)
+	l.logs.SetBackgroundColor(tcell.ColorDefault)
 	l.logs.SetText("[orange::d]" + "Waiting for logs...\n")
 	l.logs.SetMaxLines(1000)
 

@@ -52,7 +52,7 @@ func (r *Request) Download(name, path string, urlRaw string) error {
 		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	r.collector.scheduler.AddTask(schedule.NewTask(u, save), true)
+	r.collector.scheduler.AddTask(schedule.NewTask(name, u, save), true)
 	return nil
 }
 

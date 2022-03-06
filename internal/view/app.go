@@ -34,10 +34,12 @@ func NewUI(collector types.Collect) *AppUI {
 
 func (ui *AppUI) Init() {
 	ui.main = tview.NewFlex().SetDirection(tview.FlexRow)
+	ui.main.SetBackgroundColor(tcell.ColorDefault)
 
 	ui.indicator = tview.NewTextView()
 	ui.indicator.SetTextAlign(tview.AlignCenter)
 	ui.indicator.SetText("Hello Monkey King")
+	ui.indicator.SetBackgroundColor(tcell.ColorDefault)
 
 	ui.input = NewInputWrap(ui, ui.collector.Visit)
 	ui.input.Init()

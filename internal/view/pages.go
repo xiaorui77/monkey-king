@@ -1,6 +1,7 @@
 package view
 
 import (
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"strings"
 )
@@ -25,6 +26,8 @@ func NewPageStack(app *AppUI) *PageStack {
 }
 
 func (p *PageStack) Init() {
+	p.Pages.SetBackgroundColor(tcell.ColorDefault)
+
 	task := NewTaskPage(p.app, p.app.collector.GetDataProducer())
 	task.Init()
 	p.pages = append(p.pages, task)

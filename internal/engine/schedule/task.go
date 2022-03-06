@@ -7,6 +7,7 @@ import (
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/utils"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
@@ -18,36 +19,38 @@ type callback func(req *http.Request, resp *http.Response) error
 
 type Task struct {
 	ID    uint64
+	Name  string
 	state int
-	Url   *url.URL
+	url   *url.URL
 	time  time.Time
 	fun   callback
 }
 
 const (
 	TaskStateKnown = iota
-	TaskStateInit
 	TaskStateRunning
-	TaskStateSuccess
+	TaskStateInit
 	TaskStateFail
+	TaskStateSuccess
 )
 
 var TaskStateStatus = map[int]string{
-	1: "Init",
-	2: "running",
-	3: "Success",
-	4: "Fail",
+	1: "running",
+	2: "init",
+	3: "Fail",
+	4: "Success",
 }
 
 // 临时, 后面搞一下downloader
 var httpClient = &http.Client{
-	Timeout: time.Second * 10,
+	Timeout: time.Second * 60,
 }
 
-func NewTask(u *url.URL, fun callback) *Task {
+func NewTask(name string, u *url.URL, fun callback) *Task {
 	return &Task{
 		ID:    0,
-		Url:   u,
+		Name:  name,
+		url:   u,
 		state: TaskStateInit,
 		time:  time.Now(),
 		fun:   fun,
@@ -55,8 +58,7 @@ func NewTask(u *url.URL, fun callback) *Task {
 }
 
 func (t *Task) Run(ctx context.Context, client *http.Client) error {
-	t.state = TaskStateRunning
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.Url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.url.String(), nil)
 	if err != nil {
 		logx.Warnf("[schedule] The schedule[%x] failed during the new request: %v", t.ID, err)
 		return fmt.Errorf("new request fail: %v", err)
@@ -80,6 +82,10 @@ func (t *Task) Run(ctx context.Context, client *http.Client) error {
 
 func (t *Task) SetState(state int) {
 	t.state = state
+}
+
+func (t *Task) String() string {
+	return fmt.Sprintf("[%s] %s", t.Name, t.url.String())
 }
 
 // TaskQueue 任务队列
@@ -106,11 +112,12 @@ func (tq *TaskQueue) push(task *Task) {
 func (tq *TaskQueue) next() *Task {
 	tq.Lock()
 	defer tq.Unlock()
-	defer func() { tq.offset++ }()
 
 	if tq.offset >= len(tq.tasks) {
 		return nil
 	}
+
+	defer func() { tq.offset++ }()
 	return tq.tasks[tq.offset]
 }
 
@@ -209,10 +216,17 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 				sh.SleepCtx(ctx)
 				continue
 			}
-			logx.Infof("[schedule] The schedule[%x] begin to run, url: %s", task.ID, task.Url)
+
+			if task.ID == 0 {
+				task.ID = rand.Uint64()
+			}
+			logx.Infof("[schedule] The schedule[%x] begin to run, url: %s", task.ID, task.url)
+			task.state = TaskStateRunning
 			if err := task.Run(ctx, httpClient); err != nil {
 				task.SetState(TaskStateFail)
 				logx.Warnf("[schedule] The schedule[%x] run failed(try again after 5s): %v", task.ID, err)
+				// 重试
+				d.Push(true, task)
 				time.Sleep(time.Second * 5)
 				continue
 			}
@@ -223,6 +237,10 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 			time.Sleep(time.Second * 5)
 		}
 	}
+}
+
+func (d *DomainBrowser) reFail(t *Task) {
+
 }
 
 func (d *DomainBrowser) close() {

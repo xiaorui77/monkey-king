@@ -87,7 +87,7 @@ func (c *Collector) visit(u *url.URL) error {
 		return err
 	}
 
-	c.AddTask(schedule.NewTask(u, c.onScrape))
+	c.AddTask(schedule.NewTask(u.String(), u, c.onScrape))
 	return nil
 }
 
@@ -95,7 +95,7 @@ func (c *Collector) AddTask(t *schedule.Task) {
 	if t == nil {
 		return
 	}
-	logx.Debugf("[scrape] add Parser Task: %v", t.Url.String())
+	logx.Debugf("[scrape] add Parser Task: %v", t.String())
 	// c.ui.AddTaskRow(t)
 	c.scheduler.AddTask(t, false)
 }

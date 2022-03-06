@@ -46,7 +46,10 @@ func (t *TaskPage) Init() {
 	t.SetFixed(1, 0)
 	t.SetBorder(true)
 	t.SetBorderPadding(0, 0, 1, 1)
+
 	t.SetSelectable(true, false)
+	t.SetSelectionChangedFunc(t.selectionChanged)
+	t.SetBorderColor(tcell.ColorDefault)
 
 	t.StylesChanged()
 
@@ -70,26 +73,34 @@ type Te struct {
 }
 
 func (t *TaskPage) AddRow(i int, task *model.TaskRow) {
+	color := t.getColor(task.State)
+
 	cID := &tview.TableCell{
-		Text: strconv.FormatUint(task.ID, 10),
+		Text:  strconv.FormatUint(task.ID, 16),
+		Color: color,
 	}
 	cID.SetReference(task.ID)
-	t.SetCell(i, 1, cID)
+	t.SetCell(i, 0, cID)
 
 	t.SetCell(i, 1, &tview.TableCell{
-		Text: task.Domain,
+		Text:  task.Domain,
+		Color: color,
 	})
 	t.SetCell(i, 2, &tview.TableCell{
-		Text: task.Name,
+		Text:  task.Name,
+		Color: color,
 	})
 	t.SetCell(i, 3, &tview.TableCell{
-		Text: task.State,
+		Text:  task.State,
+		Color: color,
 	})
 	t.SetCell(i, 4, &tview.TableCell{
-		Text: task.Age,
+		Text:  task.Age,
+		Color: color,
 	})
 	t.SetCell(i, 5, &tview.TableCell{
-		Text: task.URL,
+		Text:  task.URL,
+		Color: color,
 	})
 }
 
@@ -118,7 +129,7 @@ func (t *TaskPage) update(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(RefreshRate):
-			RefreshRate = 3 * time.Second
+			RefreshRate = 2 * time.Second
 			t.mx.RLock()
 			fn := t.cancelFn
 			t.mx.RUnlock()
@@ -144,7 +155,7 @@ func (t *TaskPage) refresh(rows []interface{}) error {
 	t.Table.Clear()
 
 	// set title
-	t.setTitle(len(rows))
+	t.updateTitle(len(rows))
 
 	// set table header
 	t.AddHeader()
@@ -152,8 +163,9 @@ func (t *TaskPage) refresh(rows []interface{}) error {
 	for i, row := range rows {
 		t.AddRow(i+1, row.(*model.TaskRow))
 	}
-	r, _ := t.GetSelection()
-	t.Select(r, 0)
+
+	r, _ := t.Table.GetSelection()
+	t.selectionChanged(r, 0)
 	return nil
 }
 
@@ -169,7 +181,7 @@ func (t *TaskPage) AddHeader() {
 	}
 }
 
-func (t *TaskPage) setTitle(total int) {
+func (t *TaskPage) updateTitle(total int) {
 	t.Table.SetTitle(fmt.Sprintf(" %s(all) [%d] ", TaskPageName, total))
 }
 
@@ -188,4 +200,19 @@ func (t *TaskPage) selectionChanged(r, c int) {
 }
 
 func (t *TaskPage) StylesChanged() {
+}
+
+func (t *TaskPage) getColor(state string) tcell.Color {
+	switch state {
+	case "init":
+		return tcell.ColorDarkOrange
+	case "running":
+		return tcell.ColorYellow
+	case "Success":
+		return tcell.ColorForestGreen
+	case "fail":
+		return tcell.ColorRed
+	default:
+		return tcell.ColorRed
+	}
 }
