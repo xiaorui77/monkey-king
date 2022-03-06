@@ -12,6 +12,7 @@ type HtmlCallbackContainer struct {
 	fun      HtmlCallback
 }
 
+// 借些页面, 处理回调
 func (c *Collector) handleOnHtml(resp *Response) {
 	doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(resp.Body))
 	if err != nil {

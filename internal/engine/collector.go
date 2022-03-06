@@ -52,10 +52,21 @@ func (c *Collector) Run(ctx context.Context) {
 	c.scheduler.Run(ctx)
 }
 
-func (c *Collector) Visit(url string) error {
-	return c.scrape(context.TODO(), url, http.MethodGet, 1)
+// Visit 是对外的接口, 可以访问指定url
+func (c *Collector) Visit(rawUrl string) error {
+	if len(rawUrl) == 0 {
+		return errors.New("rawUrl is empty")
+	}
+
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		logx.Warnf("[collector] new schedule failed with parse url(%v): %v", rawUrl, err)
+		return err
+	}
+	return c.visit(u)
 }
 
+// OnHTML 是对外接口, 指定获取到页面后的回调
 func (c *Collector) OnHTML(selector string, fun HtmlCallback) *Collector {
 	c.register.Lock()
 	defer c.register.Unlock()
@@ -66,44 +77,17 @@ func (c *Collector) OnHTML(selector string, fun HtmlCallback) *Collector {
 	return c
 }
 
-// 抓取网页, 目前仅支持GET
-func (c *Collector) scrape(ctx context.Context, urlRaw, method string, depth int) error {
-	if c.isVisited(urlRaw) {
-		return nil
+func (c *Collector) visit(u *url.URL) error {
+	if len(u.Host) == 0 {
+		logx.Warnf("[collector] visit url(%s) failed: rawUrl is invalid", u.String())
+		return errors.New("rawUrl is invalid")
+	}
+	if err := c.filter(u); err != nil {
+		logx.Warnf("[collector] filter url(%s) cause by: %v", u.String(), err)
+		return err
 	}
 
-	// 回调
-	callback := func(req *http.Request, resp *http.Response) error {
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			logx.Debugf("scrape html failed: %v", err)
-			return fmt.Errorf("scrape html failed")
-		}
-
-		response := &Response{
-			StatusCode: resp.StatusCode,
-			Body:       body,
-			Request: &Request{
-				collector: c,
-				baseURL:   req.URL, // todo: 该怎么设置
-				URL:       req.URL,
-			},
-		}
-
-		// 通过task下载get到页面后通过回调执行
-		logx.Debugf("[scrape] 下载完成, handle callback handleOnHtml[%v]", urlRaw)
-		c.handleOnHtml(response)
-		c.recordVisit(urlRaw)
-		logx.Debugf("[scrape] 分析完成, handleOnHtml[%v]", urlRaw)
-		return nil
-	}
-
-	u, err := url.Parse(urlRaw)
-	if err != nil {
-		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
-		return errors.New("未能识别的URL")
-	}
-	c.AddTask(schedule.NewTask(u, callback))
+	c.AddTask(schedule.NewTask(u, c.onScrape))
 	return nil
 }
 
@@ -111,14 +95,42 @@ func (c *Collector) AddTask(t *schedule.Task) {
 	if t == nil {
 		return
 	}
-	logx.Debugf("[scrape] add Parser Task: %v", t.Url.Path)
+	logx.Debugf("[scrape] add Parser Task: %v", t.Url.String())
 	// c.ui.AddTaskRow(t)
 	c.scheduler.AddTask(t, false)
 }
 
-// 对抓取到的页面回调
+// 处理抓取到的页面, todo: 对页面分类
 func (c *Collector) onScrape(req *http.Request, resp *http.Response) error {
-	// todo: 代迁移
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logx.Debugf("[collector] onScrape read body failed: %v", err)
+		return fmt.Errorf("onScrape read body failed")
+	}
+
+	response := &Response{
+		StatusCode: resp.StatusCode,
+		Body:       body,
+		Request: &Request{
+			collector: c,
+			baseURL:   req.URL, // todo: 该怎么设置
+			URL:       req.URL,
+		},
+	}
+
+	// 通过task下载get到页面后通过回调执行
+	logx.Debugf("[collector] 下载完成, handle callback handleOnHtml[%v]", req.URL.String())
+	c.handleOnHtml(response)
+	c.recordVisit(req.URL.String())
+	logx.Debugf("[collector] onScrape 分析完成, handleOnHtml[%v]", req.URL.String())
+	return nil
+}
+
+// @return ok: 是否继续
+func (c *Collector) filter(u *url.URL) error {
+	if c.isVisited(u.String()) {
+		return fmt.Errorf("the URL has been browsed")
+	}
 	return nil
 }
 

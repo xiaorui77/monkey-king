@@ -39,14 +39,16 @@ func (i *InputWrap) Init() {
 func (i *InputWrap) Active(activate bool, mode int) {
 	if activate {
 		i.active = true
-		i.mode = mode
+		if i.mode != mode {
+			i.mode = mode
+			i.SetText("")
+		}
 		i.app.app.SetFocus(i)
 		i.app.main.ResizeItem(i, 3, 1)
 		return
 	}
 
 	i.active = false
-	i.mode = ModeNode
 	i.app.app.SetFocus(i.app.content)
 	i.app.main.ResizeItem(i, 0, 0)
 }

@@ -212,9 +212,7 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 			logx.Infof("[schedule] The schedule[%x] begin to run, url: %s", task.ID, task.Url)
 			if err := task.Run(ctx, httpClient); err != nil {
 				task.SetState(TaskStateFail)
-				logx.Warnf("[schedule] The schedule[%x] run failed(try again after): %v", task.ID, err)
-				// todo: new add task
-				// 失败后等待时间
+				logx.Warnf("[schedule] The schedule[%x] run failed(try again after 5s): %v", task.ID, err)
 				time.Sleep(time.Second * 5)
 				continue
 			}
