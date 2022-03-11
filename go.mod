@@ -8,9 +8,8 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/rfyiamcool/backoff v1.1.0
 	github.com/rivo/tview v0.0.0-20220216162559-96063d6082f3
-	github.com/sirupsen/logrus v1.8.1
-	github.com/yougtao/goutils v0.0.0-20220306070253-823bf9f5bd4e
-	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8
+	github.com/yougtao/goutils v0.0.1
+	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 )
 
 require (
@@ -21,10 +20,11 @@ require (
 	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/onsi/gomega v1.10.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
-	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect

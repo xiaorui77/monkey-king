@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"math/rand"
+
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine"
 	"github.com/yougtao/monker-king/internal/view"
-	"math/rand"
 )
 
 // girl
@@ -18,14 +18,14 @@ var (
 	pagingRe = `body > div:nth-child(8) > div > div.pc_pagination > a:nth-child(11)`
 )
 
-var basePath = "~/226g.net"
+var basePath = "./data"
 
 //var basePath = "D:\\tmp\\226g.net"
 
 func main() {
 	_, stopCtx := wait.SetupStopSignal()
 
-	logx.SetLevel(logrus.DebugLevel)
+	logx.Init(logx.OptLevel("debug"))
 
 	conf := config.InitConfig()
 	collector, err := engine.NewCollector(conf)

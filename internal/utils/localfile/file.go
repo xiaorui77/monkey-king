@@ -2,7 +2,7 @@ package localfile
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"github.com/yougtao/goutils/logx"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -11,7 +11,7 @@ import (
 // SaveImage 保存图片数据到指定位置
 func SaveImage(bytes []byte, path, name string) error {
 	if _, err := os.Stat(path); err != nil {
-		logrus.Debugf("create path: %v", path)
+		logx.Debugf("create path: %v", path)
 		if err := os.MkdirAll(path, 0711); err != nil {
 			return fmt.Errorf("create path %v failed", path)
 		}

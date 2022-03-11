@@ -205,11 +205,11 @@ func (t *TaskPage) StylesChanged() {
 func (t *TaskPage) getColor(state string) tcell.Color {
 	switch state {
 	case "init":
-		return tcell.ColorDarkOrange
+		return tcell.ColorOrange
 	case "running":
-		return tcell.ColorYellow
-	case "Success":
 		return tcell.ColorForestGreen
+	case "Success":
+		return tcell.ColorBlue
 	case "fail":
 		return tcell.ColorRed
 	default:
