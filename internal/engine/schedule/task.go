@@ -9,6 +9,7 @@ import (
 	"github.com/yougtao/monker-king/internal/utils"
 	"math/rand"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"sync"
 	"time"
@@ -46,6 +47,11 @@ var httpClient = &http.Client{
 	Timeout: time.Second * 60,
 }
 
+func init() {
+	cookieJar, _ := cookiejar.New(nil)
+	httpClient.Jar = cookieJar
+}
+
 func NewTask(name string, u *url.URL, fun callback) *Task {
 	return &Task{
 		ID:    0,
@@ -64,6 +70,7 @@ func (t *Task) Run(ctx context.Context, client *http.Client) error {
 		return fmt.Errorf("new request fail: %v", err)
 	}
 	req.Header.Set(utils.UserAgentKey, utils.RandomUserAgent())
+	req.Close = true
 
 	// 发送请求
 	resp, err := client.Do(req)
@@ -234,7 +241,7 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 			task.SetState(TaskStateSuccess)
 			logx.Infof("[schedule] The schedule[%x] done.", task.ID)
 			// 成功时的延迟
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 2)
 		}
 	}
 }

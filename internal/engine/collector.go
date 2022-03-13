@@ -87,7 +87,7 @@ func (c *Collector) visit(u *url.URL) error {
 		return err
 	}
 
-	c.AddTask(schedule.NewTask(u.String(), u, c.onScrape))
+	c.AddTask(schedule.NewTask("", u, c.onScrape))
 	return nil
 }
 

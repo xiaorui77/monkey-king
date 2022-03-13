@@ -5,7 +5,7 @@ import (
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/storage"
-	"github.com/yougtao/monker-king/internal/view/model"
+	"github.com/yougtao/monker-king/pkg/model"
 	"net/http"
 	"net/http/cookiejar"
 	"sort"
@@ -14,7 +14,7 @@ import (
 
 const (
 	// Parallelism is maximum concurrent number of the same host
-	Parallelism = 3
+	Parallelism = 5
 )
 
 // Runner 是一个运行器
@@ -52,6 +52,7 @@ func NewRunner(store storage.Store) *Scheduler {
 	}
 }
 
+// Run in Blocking mode
 func (r *Scheduler) Run(ctx context.Context) {
 	r.ctx = ctx
 
@@ -80,9 +81,9 @@ func (r *Scheduler) GetRows() []interface{} {
 	for _, domain := range r.queue {
 		ls := domain.List()
 		// 默认排序: state,time
-		sort.Slice(ls, func(i, j int) bool {
+		sort.SliceStable(ls, func(i, j int) bool {
 			if ls[i].state == ls[j].state {
-				return ls[i].time.Unix() < ls[j].time.Unix()
+				return ls[i].time.Unix() > ls[j].time.Unix()
 			}
 			return ls[i].state < ls[j].state
 		})

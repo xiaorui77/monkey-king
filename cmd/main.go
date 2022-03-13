@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/yougtao/monker-king/internal/manager"
 	"math/rand"
 
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine"
-	"github.com/yougtao/monker-king/internal/view"
 )
 
 // girl
@@ -25,6 +25,7 @@ var basePath = "./data"
 func main() {
 	_, stopCtx := wait.SetupStopSignal()
 
+	// option
 	logx.Init(logx.OptLevel("debug"))
 
 	conf := config.InitConfig()
@@ -54,10 +55,14 @@ func main() {
 	// begin
 	//_ = collector.Visit("https://www.228n.net/pic/toupai/")
 
-	// Running
-	ui := view.NewUI(collector)
-	ui.Init()
-	logx.SetOutput(ui.GetLogsWriter())
-	go ui.Run(stopCtx)
+	// ui
+	// ui := view.NewUI(collector)
+	// ui.Init()
+	// logx.SetOutput(ui.GetLogsWriter())
+	// go ui.Run(stopCtx)
+
+	// manager
+	go manager.NewManager(collector).Run(stopCtx)
+
 	collector.Run(stopCtx)
 }

@@ -44,6 +44,7 @@ func (r *Request) Download(name, path string, urlRaw string) error {
 		if err != nil {
 			return fmt.Errorf("read resp.Body failed: %v", err)
 		}
+		logx.Debugf("save image %s to: %s", name, path)
 		return localfile.SaveImage(bs, path, name)
 	}
 

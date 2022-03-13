@@ -29,6 +29,7 @@ type TaskPage struct {
 	styles *Styles
 	data   model.DataProducer
 
+	actions  []ActionHandler
 	cancelFn context.CancelFunc
 	mx       sync.RWMutex
 }
@@ -61,6 +62,14 @@ func (t *TaskPage) Init() {
 		{HeaderAge},
 		{HeaderURL},
 	}
+}
+
+func (t *TaskPage) addActions() {
+
+}
+
+func (t *TaskPage) handleRefresh() {
+
 }
 
 func (t *TaskPage) Name() string {
