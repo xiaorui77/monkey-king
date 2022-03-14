@@ -6,6 +6,7 @@ import (
 	"github.com/yougtao/goutils/wait"
 	"github.com/yougtao/monker-king/internal/storage"
 	"github.com/yougtao/monker-king/pkg/model"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"sort"
@@ -30,55 +31,70 @@ type Scheduler struct {
 	ctx       context.Context
 
 	// 以hostname分开的队列
-	queue map[string]*DomainBrowser
-	store storage.Store
+	browsers map[string]*DomainBrowser
+	store    storage.Store
 }
 
 func NewRunner(store storage.Store) *Scheduler {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		logx.Errorf("new cookiejar failed: %v", err)
+		logx.Fatalf("[scheduler] new cookiejar failed: %v", err)
 		return nil
 	}
-	return &Scheduler{
+	s := &Scheduler{
 		cookiejar: jar,
 		client: &http.Client{
 			Jar:     jar,
 			Timeout: time.Second * 15,
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   15 * time.Second,
+					KeepAlive: 10 * time.Second,
+				}).DialContext,
+				ForceAttemptHTTP2:     true,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   10,
+				IdleConnTimeout:       60 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
 		},
 
-		queue: map[string]*DomainBrowser{},
-		store: store,
+		browsers: map[string]*DomainBrowser{},
+		store:    store,
 	}
+	s.initIdentify()
+	return s
 }
 
 // Run in Blocking mode
-func (r *Scheduler) Run(ctx context.Context) {
-	r.ctx = ctx
+func (s *Scheduler) Run(ctx context.Context) {
+	s.ctx = ctx
 
 	<-ctx.Done()
-	wait.WaitUntil(func() bool { return len(r.queue) == 0 })
+	wait.WaitUntil(func() bool { return len(s.browsers) == 0 })
 }
 
-func (r *Scheduler) AddTask(t *Task, priority bool) {
+func (s *Scheduler) AddTask(t *Task, priority bool) {
 	if t == nil {
 		return
 	}
+	t.state = TaskStateInit
+	host := s.obtainDomain(t.url)
 
-	host := t.url.Host
-	if _, ok := r.queue[host]; !ok {
-		r.queue[host] = NewDomainBrowser(host)
-		go r.queue[host].Schedule(r.ctx)
+	if _, ok := s.browsers[host]; !ok {
+		s.browsers[host] = NewDomainBrowser(host)
+		go s.browsers[host].Begin(s.ctx)
 	}
-
-	r.queue[host].Push(priority, t)
+	s.browsers[host].Push(priority, t)
 }
 
-func (r *Scheduler) GetRows() []interface{} {
+func (s *Scheduler) GetRows() []interface{} {
 	now := time.Now()
-	rows := make([]interface{}, 0, len(r.queue))
+	rows := make([]interface{}, 0, len(s.browsers))
 
-	for _, domain := range r.queue {
+	for _, domain := range s.browsers {
 		ls := domain.List()
 		// 默认排序: state,time
 		sort.SliceStable(ls, func(i, j int) bool {
