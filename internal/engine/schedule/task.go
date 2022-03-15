@@ -18,6 +18,7 @@ type callback func(req *http.Request, resp *http.Response) error
 type Task struct {
 	ID    uint64
 	Name  string
+	Meta  map[string]interface{}
 	state int
 	url   *url.URL
 	time  time.Time
@@ -49,10 +50,11 @@ func init() {
 	httpClient.Jar = cookieJar
 }
 
-func NewTask(name string, u *url.URL, fun callback) *Task {
+func NewTask(name string, u *url.URL, meta map[string]interface{}, fun callback) *Task {
 	return &Task{
 		ID:    0,
 		Name:  name,
+		Meta:  meta,
 		url:   u,
 		state: TaskStateKnown,
 		time:  time.Now(),

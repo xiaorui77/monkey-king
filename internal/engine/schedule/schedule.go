@@ -85,9 +85,9 @@ func (s *Scheduler) AddTask(t *Task, priority bool) {
 
 	if _, ok := s.browsers[host]; !ok {
 		s.browsers[host] = NewDomainBrowser(host)
-		go s.browsers[host].Begin(s.ctx)
+		go s.browsers[host].begin(s.ctx)
 	}
-	s.browsers[host].Push(priority, t)
+	s.browsers[host].push(priority, t)
 }
 
 func (s *Scheduler) GetRows() []interface{} {
@@ -95,7 +95,7 @@ func (s *Scheduler) GetRows() []interface{} {
 	rows := make([]interface{}, 0, len(s.browsers))
 
 	for _, domain := range s.browsers {
-		ls := domain.List()
+		ls := domain.list()
 		// 默认排序: state,time
 		sort.SliceStable(ls, func(i, j int) bool {
 			if ls[i].state == ls[j].state {

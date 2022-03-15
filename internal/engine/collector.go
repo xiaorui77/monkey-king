@@ -1,13 +1,16 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/yougtao/goutils/logx"
 	"github.com/yougtao/monker-king/internal/config"
 	"github.com/yougtao/monker-king/internal/engine/schedule"
 	"github.com/yougtao/monker-king/internal/storage"
+	"github.com/yougtao/monker-king/internal/utils/localfile"
 	"github.com/yougtao/monker-king/internal/view/model"
 	"io/ioutil"
 	"net/http"
@@ -49,6 +52,7 @@ func NewCollector(config *config.Config) (*Collector, error) {
 }
 
 func (c *Collector) Run(ctx context.Context) {
+	logx.Infof("[collector] Already running...")
 	c.scheduler.Run(ctx)
 }
 
@@ -66,15 +70,28 @@ func (c *Collector) Visit(rawUrl string) error {
 	return c.visit(u)
 }
 
-// OnHTML 是对外接口, 指定获取到页面后的回调
-func (c *Collector) OnHTML(selector string, fun HtmlCallback) *Collector {
-	c.register.Lock()
-	defer c.register.Unlock()
-	if c.htmlCallbacks == nil {
-		c.htmlCallbacks = []HtmlCallbackContainer{}
+// Download 下载保存, todo: 待升级
+func (c *Collector) Download(name, path string, urlRaw string) error {
+	save := func(req *http.Request, resp *http.Response) error {
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+
+		bs, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("read resp.Body failed: %v", err)
+		}
+		logx.Debugf("save image %s to: %s", name, path)
+		return localfile.SaveImage(bs, path, name)
 	}
-	c.htmlCallbacks = append(c.htmlCallbacks, HtmlCallbackContainer{selector, fun})
-	return c
+
+	u, err := url.Parse(urlRaw)
+	if err != nil {
+		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
+		return errors.New("未能识别的URL")
+	}
+	c.scheduler.AddTask(schedule.NewTask(name, u, nil, save), true)
+	return nil
 }
 
 func (c *Collector) visit(u *url.URL) error {
@@ -87,7 +104,7 @@ func (c *Collector) visit(u *url.URL) error {
 		return err
 	}
 
-	c.AddTask(schedule.NewTask("", u, c.onScrape))
+	c.AddTask(schedule.NewTask("", u, nil, c.onScrape))
 	return nil
 }
 
@@ -124,6 +141,25 @@ func (c *Collector) onScrape(req *http.Request, resp *http.Response) error {
 	c.recordVisit(req.URL.String())
 	logx.Debugf("[collector] onScrape 分析完成, handleOnHtml[%v]", req.URL.String())
 	return nil
+}
+
+// 借些页面, 处理回调
+func (c *Collector) handleOnHtml(resp *Response) {
+	doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(resp.Body))
+	if err != nil {
+		logx.Debugf("parse html to document failed: %v", err)
+		return
+	}
+	for _, callback := range c.htmlCallbacks {
+		index := 1
+		doc.Find(callback.Selector).Each(func(_ int, selection *goquery.Selection) {
+			for _, node := range selection.Nodes {
+				e := NewHTMLElement(resp, doc, selection, node, index)
+				index++
+				callback.fun(e)
+			}
+		})
+	}
 }
 
 // @return ok: 是否继续

@@ -1,15 +1,8 @@
 package engine
 
 import (
-	"errors"
-	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/monker-king/internal/engine/schedule"
-	"github.com/yougtao/monker-king/internal/utils/localfile"
 	"golang.org/x/net/html"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -27,34 +20,6 @@ type Request struct {
 	collector *Collector
 	baseURL   *url.URL
 	URL       *url.URL
-}
-
-// Visit 继续浏览子页面
-func (r *Request) Visit(url string) error {
-	return r.collector.Visit(r.absoluteURL(url))
-}
-
-func (r *Request) Download(name, path string, urlRaw string) error {
-	save := func(req *http.Request, resp *http.Response) error {
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-
-		bs, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("read resp.Body failed: %v", err)
-		}
-		logx.Debugf("save image %s to: %s", name, path)
-		return localfile.SaveImage(bs, path, name)
-	}
-
-	u, err := url.Parse(urlRaw)
-	if err != nil {
-		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
-		return errors.New("未能识别的URL")
-	}
-	r.collector.scheduler.AddTask(schedule.NewTask(name, u, save), true)
-	return nil
 }
 
 func (r *Request) absoluteURL(u string) string {

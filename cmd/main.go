@@ -36,20 +36,21 @@ func main() {
 	}
 
 	// 单页
-	collector.OnHTML(girlRe, func(e *engine.HTMLElement) {
+	collector.OnHTMLAny(girlRe, func(e *engine.HTMLElement) {
 		name := e.GetText("body > div:nth-child(6) > div > h1", "girl-"+string(rand.Int31n(1000)))
 		file := fmt.Sprintf("%v-%03d", name, e.Index)
-		_ = e.Request.Download(file, fmt.Sprintf("%v/%v", basePath, name), e.Attr[0].Val)
+		path := fmt.Sprintf("%v/%v", basePath, name)
+		_ = collector.Download(file, path, e.Attr[0].Val)
 	})
 
 	// 列表跳转到page
-	collector.OnHTML(pageRe, func(ele *engine.HTMLElement) {
-		_ = ele.Request.Visit(ele.Attr[0].Val)
+	collector.OnHTMLAny(pageRe, func(ele *engine.HTMLElement) {
+		_ = collector.Visit(ele.Attr[0].Val)
 	})
 
 	// 分页
-	collector.OnHTML(pagingRe, func(ele *engine.HTMLElement) {
-		_ = ele.Request.Visit(ele.Attr[0].Val)
+	collector.OnHTMLAny(pagingRe, func(ele *engine.HTMLElement) {
+		_ = collector.Visit(ele.Attr[0].Val)
 	})
 
 	// begin

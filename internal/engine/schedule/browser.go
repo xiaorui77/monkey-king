@@ -28,7 +28,7 @@ func NewDomainBrowser(host string) *DomainBrowser {
 	}
 }
 
-func (d *DomainBrowser) Push(priority bool, task *Task) {
+func (d *DomainBrowser) push(priority bool, task *Task) {
 	if priority {
 		d.priority.push(task)
 	} else {
@@ -36,22 +36,22 @@ func (d *DomainBrowser) Push(priority bool, task *Task) {
 	}
 }
 
-func (d *DomainBrowser) Next() *Task {
+func (d *DomainBrowser) next() *Task {
 	if task := d.priority.next(); task != nil {
 		return task
 	}
 	return d.normal.next()
 }
 
-func (d *DomainBrowser) List() []*Task {
+func (d *DomainBrowser) list() []*Task {
 	res := make([]*Task, 0, len(d.priority.list())+len(d.normal.list()))
 	res = append(res, d.priority.list()...)
 	res = append(res, d.normal.list()...)
 	return res
 }
 
-// Begin begin schedule all tasks by multi-thread.
-func (d *DomainBrowser) Begin(ctx context.Context) {
+// begin begin schedule all tasks by multi-thread.
+func (d *DomainBrowser) begin(ctx context.Context) {
 	var wg sync.WaitGroup
 	for i := 0; i < Parallelism; i++ {
 		// 因为可能在创建ctx之前, 已经有任务被添加进来了
@@ -80,7 +80,7 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 			wg.Done()
 			return
 		default:
-			task := d.Next()
+			task := d.next()
 			if task == nil {
 				// 退避
 				sh.SleepCtx(ctx)
@@ -96,7 +96,7 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 				task.SetState(TaskStateFail)
 				logx.Warnf("[schedule] The schedule[%x] run failed(try again after 5s): %v", task.ID, err)
 				// 重试
-				d.Push(true, task)
+				d.push(true, task)
 				time.Sleep(time.Second * 5)
 				continue
 			}
