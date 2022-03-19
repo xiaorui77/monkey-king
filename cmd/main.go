@@ -26,7 +26,7 @@ func main() {
 	_, stopCtx := wait.SetupStopSignal()
 
 	// option
-	logx.Init(logx.OptLevel("debug"))
+	logx.Init(logx.OptLevel("debug"), logx.OptReportCaller(true))
 
 	conf := config.InitConfig()
 	collector, err := engine.NewCollector(conf)

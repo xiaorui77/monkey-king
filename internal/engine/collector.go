@@ -33,10 +33,14 @@ type Collector struct {
 }
 
 func NewCollector(config *config.Config) (*Collector, error) {
-	store, err := storage.NewRedisStore("127.0.0.1:6379")
-	if err != nil {
-		logx.Errorf("new collector failed: %v", err)
-		return nil, errors.New("connect redis failed")
+	var store storage.Store
+	var err error
+	if config.Persistent {
+		store, err = storage.NewRedisStore("127.0.0.1:6379")
+		if err != nil {
+			logx.Errorf("new collector failed: %v", err)
+			return nil, errors.New("connect redis failed")
+		}
 	}
 
 	runner := schedule.NewRunner(store)

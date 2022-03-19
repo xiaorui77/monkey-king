@@ -41,6 +41,7 @@ func NewManager(c types.Collect) *Manager {
 // Run the server in blocking mode.
 func (m *Manager) Run(ctx context.Context) {
 	go func() {
+		logx.Errorf("HTTP Server start at %v", m.server.Addr)
 		if err := m.server.ListenAndServe(); err != nil {
 			logx.Errorf("HTTP Server crashed: %v", err)
 		}
