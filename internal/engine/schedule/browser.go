@@ -3,8 +3,8 @@ package schedule
 import (
 	"context"
 	"github.com/rfyiamcool/backoff"
-	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/goutils/wait"
+	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/goutils/wait"
 	"math/rand"
 	"sync"
 	"time"

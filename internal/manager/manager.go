@@ -2,9 +2,9 @@ package manager
 
 import (
 	"context"
-	"github.com/yougtao/goutils/httpr"
-	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/monker-king/internal/engine/types"
+	"github.com/xiaorui77/goutils/httpr"
+	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"net/http"
 	"time"
 )

@@ -2,7 +2,7 @@ package localfile
 
 import (
 	"fmt"
-	"github.com/yougtao/goutils/logx"
+	"github.com/xiaorui77/goutils/logx"
 	"io/ioutil"
 	"net/http"
 	"os"

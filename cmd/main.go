@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/yougtao/monker-king/internal/manager"
+	"github.com/xiaorui77/monker-king/internal/manager"
 	"math/rand"
 
-	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/goutils/wait"
-	"github.com/yougtao/monker-king/internal/config"
-	"github.com/yougtao/monker-king/internal/engine"
+	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/goutils/wait"
+	"github.com/xiaorui77/monker-king/internal/config"
+	"github.com/xiaorui77/monker-king/internal/engine"
 )
 
 // girl
@@ -26,7 +26,7 @@ func main() {
 	_, stopCtx := wait.SetupStopSignal()
 
 	// option
-	logx.Init(logx.OptLevel("debug"), logx.OptReportCaller(true))
+	logx.Init("monkey-king", logx.WithLevel("debug"), logx.WithReportCaller(true))
 
 	conf := config.InitConfig()
 	collector, err := engine.NewCollector(conf)

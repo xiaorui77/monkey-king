@@ -2,10 +2,10 @@ package schedule
 
 import (
 	"context"
-	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/goutils/wait"
-	"github.com/yougtao/monker-king/internal/storage"
-	"github.com/yougtao/monker-king/pkg/model"
+	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/goutils/wait"
+	"github.com/xiaorui77/monker-king/internal/storage"
+	"github.com/xiaorui77/monker-king/pkg/model"
 	"net"
 	"net/http"
 	"net/http/cookiejar"

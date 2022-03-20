@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis"
-	"github.com/yougtao/goutils/logx"
+	"github.com/xiaorui77/goutils/logx"
 	"hash/fnv"
 	"strconv"
 )

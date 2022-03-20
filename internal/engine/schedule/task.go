@@ -3,8 +3,8 @@ package schedule
 import (
 	"context"
 	"fmt"
-	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/monker-king/internal/utils"
+	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/monker-king/internal/utils"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"

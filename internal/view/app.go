@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/yougtao/goutils/logx"
-	"github.com/yougtao/monker-king/internal/engine/types"
+	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"io"
 	"os"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/yougtao/monker-king/internal/view/model"
+	"github.com/xiaorui77/monker-king/internal/view/model"
 	"io"
 	"sync"
 	"time"
