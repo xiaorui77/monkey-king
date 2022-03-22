@@ -71,7 +71,7 @@ func NewHTMLElement(resp *Response, doc *goquery.Document, DOM *goquery.Selectio
 
 func (e HTMLElement) GetText(selector, def string) string {
 	if str := e.Doc.Find(selector).Text(); str != "" {
-		return str
+		return html.UnescapeString(str)
 	}
 	return def
 }

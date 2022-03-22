@@ -8,7 +8,7 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/rfyiamcool/backoff v1.1.0
 	github.com/rivo/tview v0.0.0-20220216162559-96063d6082f3
-	github.com/xiaorui77/goutils v0.1.0
+	github.com/xiaorui77/goutils v0.1.1
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 )
 
