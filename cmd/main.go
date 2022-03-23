@@ -11,7 +11,6 @@ import (
 	"github.com/xiaorui77/monker-king/internal/engine"
 )
 
-// girl
 var (
 	girlRe   = `body > div:nth-child(6) > div > div.pic > img`
 	pageRe   = `body > div:nth-child(6) > div > div.row.col6.clearfix > dl > dt > a`
@@ -20,13 +19,11 @@ var (
 
 var basePath = "./data"
 
-//var basePath = "D:\\tmp\\226g.net"
-
 func main() {
 	_, stopCtx := wait.SetupStopSignal()
 
 	// option
-	logx.Init("monkey-king", logx.WithLevel("debug"), logx.WithReportCaller(true))
+	logx.Init("monkey-king", logx.WithLevel(logx.DebugLevel), logx.WithReportCaller(true))
 
 	conf := config.InitConfig()
 	collector, err := engine.NewCollector(conf)
@@ -52,9 +49,6 @@ func main() {
 	collector.OnHTMLAny(pagingRe, func(ele *engine.HTMLElement) {
 		_ = collector.Visit(ele.Attr[0].Val)
 	})
-
-	// begin
-	//_ = collector.Visit("https://www.228n.net/pic/toupai/")
 
 	// ui
 	// ui := view.NewUI(collector)
