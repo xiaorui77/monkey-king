@@ -61,6 +61,7 @@ func (d *Downloader) Get(t *task.Task) {
 		return
 	}
 
+	logx.Infof("[download] request.Do finish, begin handle task[%x] OnResponse", t.ID)
 	t.HandleOnResponse(req, resp)
 }
 

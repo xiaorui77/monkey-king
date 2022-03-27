@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	// Parallelism is maximum concurrent number of the same host
-	Parallelism = 5
+	// Parallelism is maximum concurrent number of the same domain.
+	Parallelism = 3
 
 	taskQueueSize = 100
 )
@@ -52,12 +52,11 @@ func (s *Scheduler) Run(ctx context.Context) {
 		case t := <-s.taskQueue:
 			t.SetState(task.StateInit)
 			host := s.obtainDomain(t.Url)
-			b, ok := s.browsers[host]
-			if !ok {
-				b = NewDomainBrowser(s, host)
-				go b.begin(ctx)
+			if _, ok := s.browsers[host]; !ok {
+				s.browsers[host] = NewDomainBrowser(s, host)
+				go s.browsers[host].begin(ctx)
 			}
-			b.push(t)
+			s.browsers[host].push(t)
 		}
 	}
 }

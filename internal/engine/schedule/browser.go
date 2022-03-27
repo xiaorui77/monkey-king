@@ -44,6 +44,7 @@ func (d *DomainBrowser) list() []*task.Task {
 
 // schedule all tasks by multi-thread.
 func (d *DomainBrowser) begin(ctx context.Context) {
+	logx.Infof("[schedule] The Browser of domain[%s] begin, process num: %d", d.domain, Parallelism)
 	var wg sync.WaitGroup
 	for i := 0; i < Parallelism; i++ {
 		// 因为可能在创建ctx之前, 已经有任务被添加进来了
@@ -73,11 +74,11 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 			if t.ID == 0 {
 				t.ID = rand.Uint64()
 			}
-			logx.Infof("[schedule] The task[%x] begin to run, url: %s", t.ID, t.Url)
+			logx.Infof("[schedule-%d] The task[%x] begin to run, url: %s", index, t.ID, t.Url)
 			t.SetState(task.StateRunning)
 			d.schedule.download.Get(t)
 			time.Sleep(time.Second * 3)
-			logx.Debugf("[schedule] The task[%x] done.", t.ID)
+			logx.Debugf("[schedule-%d] The task[%x] done.", index, t.ID)
 		}
 	}
 }
@@ -112,7 +113,7 @@ func (tq *TaskQueue) push(task *task.Task) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	l := len(tq.tasks)
+	l := len(tq.tasks) - 1
 	for i := range tq.tasks {
 		j := l - i
 		if tq.tasks[j].Priority <= task.Priority {
@@ -126,6 +127,7 @@ func (tq *TaskQueue) push(task *task.Task) {
 			return
 		}
 	}
+	tq.tasks = append(tq.tasks, task)
 }
 
 func (tq *TaskQueue) next() *task.Task {

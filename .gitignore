@@ -2,4 +2,4 @@
 *.exe
 
 .idea/
-.data/
+data/
