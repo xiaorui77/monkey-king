@@ -1,12 +1,11 @@
 module github.com/xiaorui77/monker-king
 
-go 1.17
+go 1.18
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/gdamore/tcell/v2 v2.4.1-0.20210905002822-f057f0a857a1
 	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/rfyiamcool/backoff v1.1.0
 	github.com/rivo/tview v0.0.0-20220216162559-96063d6082f3
 	github.com/xiaorui77/goutils v0.1.2
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f

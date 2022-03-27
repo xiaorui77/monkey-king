@@ -2,9 +2,9 @@ package schedule
 
 import (
 	"context"
-	"github.com/rfyiamcool/backoff"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/wait"
+	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"math/rand"
 	"sync"
 	"time"
@@ -14,43 +14,35 @@ import (
 // 1. 处理同一个Domain下的优先级关系
 // 2. 管理cookie等
 type DomainBrowser struct {
-	domain string
-
-	priority *TaskQueue
+	schedule *Scheduler
+	domain   string
 	normal   *TaskQueue
 }
 
-func NewDomainBrowser(host string) *DomainBrowser {
+func NewDomainBrowser(s *Scheduler, host string) *DomainBrowser {
 	return &DomainBrowser{
+		schedule: s,
 		domain:   host,
-		priority: NewTaskQueue(),
 		normal:   NewTaskQueue(),
 	}
 }
 
-func (d *DomainBrowser) push(priority bool, task *Task) {
-	if priority {
-		d.priority.push(task)
-	} else {
-		d.normal.push(task)
-	}
+func (d *DomainBrowser) push(task *task.Task) {
+	d.normal.push(task)
 }
 
-func (d *DomainBrowser) next() *Task {
-	if task := d.priority.next(); task != nil {
-		return task
-	}
+// todo
+func (d *DomainBrowser) next() *task.Task {
 	return d.normal.next()
 }
 
-func (d *DomainBrowser) list() []*Task {
-	res := make([]*Task, 0, len(d.priority.list())+len(d.normal.list()))
-	res = append(res, d.priority.list()...)
+func (d *DomainBrowser) list() []*task.Task {
+	res := make([]*task.Task, 0, len(d.normal.list()))
 	res = append(res, d.normal.list()...)
 	return res
 }
 
-// begin begin schedule all tasks by multi-thread.
+// schedule all tasks by multi-thread.
 func (d *DomainBrowser) begin(ctx context.Context) {
 	var wg sync.WaitGroup
 	for i := 0; i < Parallelism; i++ {
@@ -66,50 +58,31 @@ func (d *DomainBrowser) begin(ctx context.Context) {
 }
 
 func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index int) {
-	// 退避
-	sh := backoff.NewBackOff(
-		backoff.WithMinDelay(2*time.Second),
-		backoff.WithMaxDelay(15*time.Second),
-		backoff.WithFactor(2),
-	)
-
 	for {
 		select {
 		case <-ctx.Done():
-			logx.Infof("[schedule] The process-%d[%s] will stop", index, d.domain)
+			logx.Infof("[schedule] The process[%s-%d] will stop", d.domain, index)
 			wg.Done()
 			return
 		default:
-			task := d.next()
-			if task == nil {
-				// 退避
-				sh.SleepCtx(ctx)
+			t := d.next()
+			if t == nil {
+				time.Sleep(2 * time.Second)
 				continue
 			}
-
-			if task.ID == 0 {
-				task.ID = rand.Uint64()
+			if t.ID == 0 {
+				t.ID = rand.Uint64()
 			}
-			logx.Infof("[schedule] The schedule[%x] begin to run, url: %s", task.ID, task.url)
-			task.state = TaskStateRunning
-			if err := task.Run(ctx, httpClient); err != nil {
-				task.SetState(TaskStateFail)
-				logx.Warnf("[schedule] The schedule[%x] run failed(try again after 5s): %v", task.ID, err)
-				// 重试
-				d.push(true, task)
-				time.Sleep(time.Second * 5)
-				continue
-			}
-			sh.Reset()
-			task.SetState(TaskStateSuccess)
-			logx.Infof("[schedule] The schedule[%x] done.", task.ID)
-			// 成功时的延迟
-			time.Sleep(time.Second * 2)
+			logx.Infof("[schedule] The task[%x] begin to run, url: %s", t.ID, t.Url)
+			t.SetState(task.StateRunning)
+			d.schedule.download.Get(t)
+			time.Sleep(time.Second * 3)
+			logx.Debugf("[schedule] The task[%x] done.", t.ID)
 		}
 	}
 }
 
-func (d *DomainBrowser) reFail(_ *Task) {
+func (d *DomainBrowser) reFail(_ *task.Task) {
 
 }
 
@@ -119,4 +92,58 @@ func (d *DomainBrowser) close() {
 
 func (d *DomainBrowser) MarshalJSON() ([]byte, error) {
 	return nil, nil
+}
+
+// TaskQueue 任务队列
+type TaskQueue struct {
+	sync.RWMutex
+
+	tasks  []*task.Task
+	offset int
+}
+
+func NewTaskQueue() *TaskQueue {
+	return &TaskQueue{
+		tasks: []*task.Task{},
+	}
+}
+
+func (tq *TaskQueue) push(task *task.Task) {
+	tq.Lock()
+	defer tq.Unlock()
+
+	l := len(tq.tasks)
+	for i := range tq.tasks {
+		j := l - i
+		if tq.tasks[j].Priority <= task.Priority {
+			tq.tasks = append(tq.tasks, nil)
+			copy(tq.tasks[j+1:], tq.tasks[j:])
+			tq.tasks[j] = task
+
+			if j < tq.offset {
+				tq.offset = j
+			}
+			return
+		}
+	}
+}
+
+func (tq *TaskQueue) next() *task.Task {
+	tq.Lock()
+	defer tq.Unlock()
+
+	for i, t := range tq.tasks {
+		if i >= tq.offset && t.State != task.StateSuccess {
+			tq.offset = i + 1
+			if tq.offset > len(tq.tasks) {
+				tq.offset = 0
+			}
+			return t
+		}
+	}
+	return nil
+}
+
+func (tq *TaskQueue) list() []*task.Task {
+	return tq.tasks
 }

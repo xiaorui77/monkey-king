@@ -9,6 +9,7 @@ import (
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/monker-king/internal/config"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule"
+	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/storage"
 	"github.com/xiaorui77/monker-king/internal/utils/localfile"
 	"github.com/xiaorui77/monker-king/internal/view/model"
@@ -20,8 +21,8 @@ import (
 
 type Collector struct {
 	config    *config.Config
+	scheduler *schedule.Scheduler
 	store     storage.Store
-	scheduler schedule.Runner
 
 	// visited list
 	visitedList map[string]bool
@@ -43,11 +44,11 @@ func NewCollector(config *config.Config) (*Collector, error) {
 		}
 	}
 
-	runner := schedule.NewRunner(store)
+	scheduler := schedule.NewRunner(store)
 	c := &Collector{
 		config:    config,
 		store:     store,
-		scheduler: runner,
+		scheduler: scheduler,
 
 		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
@@ -94,7 +95,7 @@ func (c *Collector) Download(name, path string, urlRaw string) error {
 		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	c.scheduler.AddTask(schedule.NewTask(name, u, nil, save), true)
+	c.scheduler.AddTask(task.NewTask(name, u, nil, save).SetPriority(1))
 	return nil
 }
 
@@ -108,17 +109,17 @@ func (c *Collector) visit(u *url.URL) error {
 		return err
 	}
 
-	c.AddTask(schedule.NewTask("", u, nil, c.onScrape))
+	c.AddTask(task.NewTask("", u, nil, c.onScrape))
 	return nil
 }
 
-func (c *Collector) AddTask(t *schedule.Task) {
+func (c *Collector) AddTask(t *task.Task) {
 	if t == nil {
 		return
 	}
 	logx.Debugf("[scrape] add Parser Task: %v", t.String())
 	// c.ui.AddTaskRow(t)
-	c.scheduler.AddTask(t, false)
+	c.scheduler.AddTask(t)
 }
 
 // 处理抓取到的页面, todo: 对页面分类
@@ -190,6 +191,5 @@ func (c *Collector) isVisited(url string) bool {
 }
 
 func (c *Collector) GetDataProducer() model.DataProducer {
-	d, _ := c.scheduler.(*schedule.Scheduler)
-	return d
+	return c.scheduler
 }
