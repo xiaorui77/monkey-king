@@ -1,6 +1,8 @@
 package engine
 
-type HtmlCallback func(element *HTMLElement)
+import "github.com/xiaorui77/monker-king/internal/engine/task"
+
+type HtmlCallback func(task *task.Task, element *HTMLElement)
 type HtmlCallbackContainer struct {
 	Selector string
 	fun      HtmlCallback

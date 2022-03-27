@@ -62,7 +62,7 @@ func (c *Collector) Run(ctx context.Context) {
 }
 
 // Visit 是对外的接口, 可以访问指定url
-func (c *Collector) Visit(rawUrl string) error {
+func (c *Collector) Visit(parent *task.Task, rawUrl string) error {
 	if len(rawUrl) == 0 {
 		return errors.New("rawUrl is empty")
 	}
@@ -72,12 +72,12 @@ func (c *Collector) Visit(rawUrl string) error {
 		logx.Warnf("[collector] new schedule failed with parse url(%v): %v", rawUrl, err)
 		return err
 	}
-	return c.visit(u)
+	return c.visit(parent, u)
 }
 
 // Download 下载保存, todo: 待升级
-func (c *Collector) Download(name, path string, urlRaw string) error {
-	save := func(req *http.Request, resp *http.Response) error {
+func (c *Collector) Download(parent *task.Task, name, path string, urlRaw string) error {
+	save := func(t *task.Task, req *http.Request, resp *http.Response) error {
 		defer func() {
 			_ = resp.Body.Close()
 		}()
@@ -95,11 +95,11 @@ func (c *Collector) Download(name, path string, urlRaw string) error {
 		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	c.scheduler.AddTask(task.NewTask(name, u, nil, save).SetPriority(1))
+	c.scheduler.AddTask(task.NewTask(name, parent, u, nil, save).SetPriority(1))
 	return nil
 }
 
-func (c *Collector) visit(u *url.URL) error {
+func (c *Collector) visit(parent *task.Task, u *url.URL) error {
 	if len(u.Host) == 0 {
 		logx.Warnf("[collector] visit url(%s) failed: rawUrl is invalid", u.String())
 		return errors.New("rawUrl is invalid")
@@ -109,7 +109,7 @@ func (c *Collector) visit(u *url.URL) error {
 		return err
 	}
 
-	c.AddTask(task.NewTask("", u, nil, c.onScrape))
+	c.AddTask(task.NewTask("", parent, u, nil, c.scrape))
 	return nil
 }
 
@@ -123,11 +123,11 @@ func (c *Collector) AddTask(t *task.Task) {
 }
 
 // 处理抓取到的页面, todo: 对页面分类
-func (c *Collector) onScrape(req *http.Request, resp *http.Response) error {
+func (c *Collector) scrape(task *task.Task, req *http.Request, resp *http.Response) error {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logx.Debugf("[collector] onScrape read body failed: %v", err)
-		return fmt.Errorf("onScrape read body failed")
+		logx.Debugf("[collector] scrape read body failed: %v", err)
+		return fmt.Errorf("scrape read body failed")
 	}
 
 	response := &Response{
@@ -142,14 +142,14 @@ func (c *Collector) onScrape(req *http.Request, resp *http.Response) error {
 
 	// 通过task下载get到页面后通过回调执行
 	logx.Debugf("[collector] 下载完成, handle callback handleOnHtml[%v]", req.URL.String())
-	c.handleOnHtml(response)
+	c.handleOnHtml(task, response)
 	c.recordVisit(req.URL.String())
-	logx.Debugf("[collector] onScrape 分析完成, handleOnHtml[%v]", req.URL.String())
+	logx.Debugf("[collector] scrape 分析完成, handleOnHtml[%v]", req.URL.String())
 	return nil
 }
 
 // 借些页面, 处理回调
-func (c *Collector) handleOnHtml(resp *Response) {
+func (c *Collector) handleOnHtml(task *task.Task, resp *Response) {
 	doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(resp.Body))
 	if err != nil {
 		logx.Debugf("parse html to document failed: %v", err)
@@ -161,7 +161,7 @@ func (c *Collector) handleOnHtml(resp *Response) {
 			for _, node := range selection.Nodes {
 				e := NewHTMLElement(resp, doc, selection, node, index)
 				index++
-				callback.fun(e)
+				callback.fun(task, e)
 			}
 		})
 	}

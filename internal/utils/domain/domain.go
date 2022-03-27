@@ -1,11 +1,11 @@
-package schedule
+package domain
 
 import (
 	"net/url"
 	"regexp"
 )
 
-var domainAll = map[string]*DomainIdentify{
+var domainAll = map[string]*Identify{
 	"335v.net": {
 		ExactHosts: []string{
 			"335v.net",
@@ -21,15 +21,15 @@ var (
 	RegexpHosts = map[string]string{}
 )
 
-type DomainIdentify struct {
+type Identify struct {
 	Domain     string
 	ExactHosts []string
 	// Fuzzy     []string
 	Regular []string
 }
 
-func (s *Scheduler) initIdentify() {
-	// 将正方向转换为逆方向
+func init() {
+	// 倒排索引
 	for domain, identify := range domainAll {
 		identify.Domain = domain
 		for _, host := range identify.ExactHosts {
@@ -41,8 +41,8 @@ func (s *Scheduler) initIdentify() {
 	}
 }
 
-// 获取
-func (s *Scheduler) obtainDomain(u *url.URL) string {
+// CalDomain 计算归属
+func CalDomain(u *url.URL) string {
 	uh := u.Hostname()
 
 	// 精确匹配

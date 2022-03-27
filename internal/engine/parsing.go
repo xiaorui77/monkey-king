@@ -2,6 +2,7 @@ package engine
 
 import (
 	"github.com/PuerkitoBio/goquery"
+	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"golang.org/x/net/html"
 	"net/url"
 	"strings"
@@ -44,6 +45,7 @@ func (r *Request) absoluteURL(u string) string {
 }
 
 type HTMLElement struct {
+	task     *task.Task
 	Request  *Request
 	Response *Response
 

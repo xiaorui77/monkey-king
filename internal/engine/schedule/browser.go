@@ -83,10 +83,6 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 	}
 }
 
-func (d *DomainBrowser) reFail(_ *task.Task) {
-
-}
-
 func (d *DomainBrowser) close() {
 	// todo: close all task queue of the domain
 }

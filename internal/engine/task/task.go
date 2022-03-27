@@ -3,31 +3,18 @@ package task
 import (
 	"fmt"
 	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/monker-king/internal/utils/domain"
 	"net/http"
 	"net/url"
 	"time"
 )
 
 // 请求完成后回调
-type callback func(req *http.Request, resp *http.Response) error
+type callback func(task *Task, req *http.Request, resp *http.Response) error
 
 type OnResponse func(req *http.Request, resp *http.Response)
 
 type OnResponseError func(resp *http.Response, err error)
-
-type Task struct {
-	ID       uint64
-	Name     string
-	Meta     map[string]interface{}
-	Priority int
-	State    int
-	Url      *url.URL
-	Time     time.Time
-
-	callback                callback
-	onResponseHandlers      []OnResponse
-	onResponseErrorHandlers []OnResponseError
-}
 
 const (
 	StateKnown = iota
@@ -38,15 +25,32 @@ const (
 )
 
 var StateStatus = map[int]string{
+	0: "known",
 	1: "running",
 	2: "init",
 	3: "Fail",
 	4: "Success",
 }
 
-func NewTask(name string, u *url.URL, meta map[string]interface{}, fun callback) *Task {
-	return &Task{
-		ID:       0,
+type Task struct {
+	ID       uint64
+	ParentId uint64
+	Name     string
+	State    int
+	Domain   string
+	Priority int
+	Url      *url.URL
+
+	Meta map[string]interface{}
+	Time time.Time
+
+	callback                callback
+	onResponseHandlers      []OnResponse
+	onResponseErrorHandlers []OnResponseError
+}
+
+func NewTask(name string, parent *Task, u *url.URL, meta map[string]interface{}, fun callback) *Task {
+	t := &Task{
 		Name:     name,
 		Meta:     meta,
 		Url:      u,
@@ -54,6 +58,13 @@ func NewTask(name string, u *url.URL, meta map[string]interface{}, fun callback)
 		Time:     time.Now(),
 		callback: fun,
 	}
+	if parent != nil {
+		t.Domain = parent.Domain
+		t.ParentId = parent.ID
+	} else {
+		t.Domain = domain.CalDomain(u)
+	}
+	return t
 }
 
 func (t *Task) SetPriority(p int) *Task {
@@ -67,7 +78,7 @@ func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) {
 	}
 
 	if resp.StatusCode == http.StatusOK {
-		if err := t.callback(req, resp); err != nil {
+		if err := t.callback(t, req, resp); err != nil {
 			t.SetState(StateFail)
 		} else {
 			t.SetState(StateSuccess)

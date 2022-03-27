@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/manager"
 	"math/rand"
 
@@ -33,21 +34,21 @@ func main() {
 	}
 
 	// 单页
-	collector.OnHTMLAny(girlRe, func(e *engine.HTMLElement) {
+	collector.OnHTMLAny(girlRe, func(t *task.Task, e *engine.HTMLElement) {
 		name := e.GetText("body > div:nth-child(6) > div > h1", "girl-"+string(rand.Int31n(1000)))
 		file := fmt.Sprintf("%v-%03d", name, e.Index)
 		path := fmt.Sprintf("%v/%v", basePath, name)
-		_ = collector.Download(file, path, e.Attr[0].Val)
+		_ = collector.Download(t, file, path, e.Attr[0].Val)
 	})
 
 	// 列表跳转到page
-	collector.OnHTMLAny(pageRe, func(ele *engine.HTMLElement) {
-		_ = collector.Visit(ele.Attr[0].Val)
+	collector.OnHTMLAny(pageRe, func(t *task.Task, ele *engine.HTMLElement) {
+		_ = collector.Visit(t, ele.Attr[0].Val)
 	})
 
 	// 分页
-	collector.OnHTMLAny(pagingRe, func(ele *engine.HTMLElement) {
-		_ = collector.Visit(ele.Attr[0].Val)
+	collector.OnHTMLAny(pagingRe, func(t *task.Task, ele *engine.HTMLElement) {
+		_ = collector.Visit(t, ele.Attr[0].Val)
 	})
 
 	// ui

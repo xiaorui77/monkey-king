@@ -29,13 +29,11 @@ type Scheduler struct {
 }
 
 func NewRunner(store storage.Store) *Scheduler {
-	s := &Scheduler{
+	return &Scheduler{
 		taskQueue: make(chan *task.Task, taskQueueSize),
 		browsers:  map[string]*DomainBrowser{},
 		store:     store,
 	}
-	s.initIdentify()
-	return s
 }
 
 // Run in Blocking mode
@@ -51,12 +49,11 @@ func (s *Scheduler) Run(ctx context.Context) {
 			return
 		case t := <-s.taskQueue:
 			t.SetState(task.StateInit)
-			host := s.obtainDomain(t.Url)
-			if _, ok := s.browsers[host]; !ok {
-				s.browsers[host] = NewDomainBrowser(s, host)
-				go s.browsers[host].begin(ctx)
+			if _, ok := s.browsers[t.Domain]; !ok {
+				s.browsers[t.Domain] = NewDomainBrowser(s, t.Domain)
+				go s.browsers[t.Domain].begin(ctx)
 			}
-			s.browsers[host].push(t)
+			s.browsers[t.Domain].push(t)
 		}
 	}
 }

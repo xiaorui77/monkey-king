@@ -12,7 +12,7 @@ func (m *Manager) HandleAddTask(c *httpr.Context) {
 		return
 	}
 
-	c.ResultMessage(fmt.Sprintf("add task success"), m.collector.Visit(data.Url))
+	c.ResultMessage(fmt.Sprintf("add task success"), m.collector.Visit(nil, data.Url))
 }
 
 func (m *Manager) HandleListTask(c *httpr.Context) {
