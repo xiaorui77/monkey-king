@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/xiaorui77/goutils/logx/hooks"
+	"github.com/xiaorui77/goutils/math"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/manager"
 	"math/rand"
@@ -25,8 +26,9 @@ func main() {
 	_, stopCtx := wait.SetupStopSignal()
 
 	// option
-	logx.Init("monkey-king", logx.WithLevel(logx.DebugLevel), logx.WithReportCaller(true),
-		logx.WithHook(hooks.NewEsHook("http://192.168.43.104:5601")))
+	logx.Init("monkey-king", logx.WithInstance("monkey-king-"+math.RandomStr(5, 36)),
+		logx.WithLevel(logx.DebugLevel), logx.WithReportCaller(true),
+		logx.WithHook(hooks.NewEsHook("http://192.168.43.104:9200")))
 
 	conf := config.InitConfig()
 	collector, err := engine.NewCollector(conf)
