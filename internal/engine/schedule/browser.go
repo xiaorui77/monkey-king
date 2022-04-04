@@ -5,7 +5,6 @@ import (
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
-	"math/rand"
 	"sync"
 	"time"
 )
@@ -71,9 +70,6 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 				time.Sleep(2 * time.Second)
 				continue
 			}
-			if t.ID == 0 {
-				t.ID = rand.Uint64()
-			}
 			logx.Infof("[schedule-%d] The task[%x] begin to run, url: %s", index, t.ID, t.Url)
 			t.SetState(task.StateRunning)
 			d.schedule.download.Get(t)
@@ -105,38 +101,36 @@ func NewTaskQueue() *TaskQueue {
 	}
 }
 
-func (tq *TaskQueue) push(task *task.Task) {
+func (tq *TaskQueue) push(t *task.Task) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	l := len(tq.tasks) - 1
-	for i := range tq.tasks {
-		j := l - i
-		if tq.tasks[j].Priority <= task.Priority {
+	for j := len(tq.tasks) - 1; j >= 0; j-- {
+		if t.Priority <= tq.tasks[j].Priority {
 			tq.tasks = append(tq.tasks, nil)
-			copy(tq.tasks[j+1:], tq.tasks[j:])
-			tq.tasks[j] = task
+			copy(tq.tasks[j+2:], tq.tasks[j+1:])
+			tq.tasks[j+1] = t
 
-			if j < tq.offset {
-				tq.offset = j
+			if j+1 < tq.offset {
+				tq.offset = j + 1
 			}
 			return
 		}
 	}
-	tq.tasks = append(tq.tasks, task)
+	// 插入前部
+	tq.tasks = append([]*task.Task{t}, tq.tasks...)
+	tq.offset = 0
 }
 
 func (tq *TaskQueue) next() *task.Task {
 	tq.Lock()
 	defer tq.Unlock()
 
-	for i, t := range tq.tasks {
-		if i >= tq.offset && t.State != task.StateSuccess {
-			tq.offset = i + 1
-			if tq.offset > len(tq.tasks) {
-				tq.offset = 0
-			}
-			return t
+	for i := 0; i < len(tq.tasks); i++ {
+		j := (tq.offset + i) % len(tq.tasks)
+		if tq.tasks[j].State != task.StateSuccess {
+			tq.offset = j + 1
+			return tq.tasks[j]
 		}
 	}
 	return nil

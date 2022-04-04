@@ -26,20 +26,21 @@ func NewDownloader(ctx context.Context) *Downloader {
 	return &Downloader{
 		ctx: ctx,
 		client: &http.Client{
-			Jar:     jar,
-			Timeout: time.Second * 15,
+			Jar: jar,
+			// The timeout includes connection time, any redirects, and reading the response body.
+			// includes Dial、TLS handshake、Request、Resp.Headers、Resp.Body, excludes Idle
+			Timeout: time.Second * 90,
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
 					Timeout:   15 * time.Second,
 					KeepAlive: 10 * time.Second,
 				}).DialContext,
-				ForceAttemptHTTP2:     true,
-				MaxIdleConns:          100,
-				MaxIdleConnsPerHost:   10,
-				IdleConnTimeout:       60 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
+				ForceAttemptHTTP2:   true,
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				TLSHandshakeTimeout: 15 * time.Second,
+				IdleConnTimeout:     60 * time.Second,
 			},
 		},
 	}
@@ -56,7 +57,7 @@ func (d *Downloader) Get(t *task.Task) {
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		logx.Warnf("[download] request.Do failed: %v")
+		logx.Warnf("[download] request.Do failed: %v", err)
 		t.HandleOnResponseErr(resp, err)
 		return
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/monker-king/internal/utils/domain"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
@@ -51,6 +52,7 @@ type Task struct {
 
 func NewTask(name string, parent *Task, u *url.URL, meta map[string]interface{}, fun callback) *Task {
 	t := &Task{
+		ID:       rand.Uint64(),
 		Name:     name,
 		Meta:     meta,
 		Url:      u,
@@ -79,8 +81,10 @@ func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) {
 
 	if resp.StatusCode == http.StatusOK {
 		if err := t.callback(t, req, resp); err != nil {
+			logx.Warnf("[schedule] Task[%x] failed: %v", t.ID, err)
 			t.SetState(StateFail)
 		} else {
+			logx.Infof("[schedule] Task[%x] done.", t.ID)
 			t.SetState(StateSuccess)
 		}
 	} else {
