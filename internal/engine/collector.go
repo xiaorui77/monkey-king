@@ -11,7 +11,7 @@ import (
 	"github.com/xiaorui77/monker-king/internal/engine/schedule"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/storage"
-	"github.com/xiaorui77/monker-king/internal/utils/localfile"
+	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
 	"github.com/xiaorui77/monker-king/internal/view/model"
 	"io/ioutil"
 	"net/http"
@@ -82,12 +82,17 @@ func (c *Collector) Download(parent *task.Task, name, path string, urlRaw string
 			_ = resp.Body.Close()
 		}()
 
-		bs, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("read resp.Body failed: %v", err)
+		reader := &fileutil.VisualReader{
+			Reader: resp.Body,
+			Total:  resp.ContentLength,
 		}
-		logx.Debugf("[collector] save image %s to: %s", name, path)
-		return localfile.SaveImage(bs, path, name)
+		bs, err := reader.ReadAll()
+		if err != nil {
+			logx.Errorf("[collector] reading when: %v/%v from resp.Body failed: %v", reader.Cur, reader.Total, err)
+			return fmt.Errorf("reading resp.Body failed: %v", err)
+		}
+		logx.Debugf("[collector] save file [%s] to: [%s]", name, path)
+		return fileutil.SaveImage(bs, path, name)
 	}
 
 	u, err := url.Parse(urlRaw)
