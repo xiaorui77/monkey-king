@@ -61,6 +61,10 @@ func (c *Collector) Run(ctx context.Context) {
 	c.scheduler.Run(ctx)
 }
 
+func (c *Collector) Scheduler() *schedule.Scheduler {
+	return c.scheduler
+}
+
 // Visit 是对外的接口, 可以访问指定url
 func (c *Collector) Visit(parent *task.Task, rawUrl string) error {
 	logx.Infof("[collector] Visit url: %v", rawUrl)
@@ -109,7 +113,6 @@ func (c *Collector) AddTask(t *task.Task) {
 		return
 	}
 	logx.Debugf("[scrape] add Parser Task: %v", t.String())
-	// c.ui.AddTaskRow(t)
 	c.scheduler.AddTask(t)
 }
 

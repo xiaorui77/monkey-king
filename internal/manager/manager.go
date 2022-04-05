@@ -33,6 +33,7 @@ func NewManager(c types.Collect) *Manager {
 	}
 
 	m.router.POST("/api/v1/task", m.HandleAddTask)
+	m.router.DELETE("/api/v1/task", m.HandleDeleteTask)
 	m.router.GET("/api/v1/tasks", m.HandleListTask)
 
 	return m

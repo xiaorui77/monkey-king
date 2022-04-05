@@ -38,6 +38,14 @@ func (d *DomainBrowser) push(task *task.Task) {
 	d.normal.push(task)
 }
 
+func (d *DomainBrowser) delete(name string) *task.Task {
+	return d.normal.delete(name)
+}
+
+func (d *DomainBrowser) query(name string) *task.Task {
+	return d.normal.query(name)
+}
+
 // todo
 func (d *DomainBrowser) next() *task.Task {
 	return d.normal.next()
@@ -78,7 +86,7 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 				time.Sleep(2 * time.Second)
 				continue
 			}
-			logx.Infof("[scheduler] [process-%d] Task[%x] begin to run, url: %s", index, t.ID, t.Url)
+			logx.Infof("[scheduler] [process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
 			t.SetState(task.StateRunning)
 			req, resp, err := d.schedule.download.Get(t)
 			if err != nil {
@@ -147,6 +155,31 @@ func (tq *TaskQueue) next() *task.Task {
 			tq.offset = j + 1
 			tq.tasks[j].SetState(task.StateUnknown)
 			return tq.tasks[j]
+		}
+	}
+	return nil
+}
+
+func (tq *TaskQueue) query(name string) *task.Task {
+	for _, t := range tq.tasks {
+		if t.Name == name {
+			return t
+		}
+	}
+	return nil
+}
+
+func (tq *TaskQueue) delete(name string) *task.Task {
+	tq.Lock()
+	defer tq.Unlock()
+
+	for i, t := range tq.tasks {
+		if t.Name == name {
+			tq.tasks = append(tq.tasks[:i], tq.tasks[i+1:]...)
+			if i <= tq.offset {
+				tq.offset--
+			}
+			return t
 		}
 	}
 	return nil

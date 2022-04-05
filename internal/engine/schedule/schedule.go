@@ -95,3 +95,22 @@ func (s *Scheduler) GetRows() []interface{} {
 func (s *Scheduler) close() {
 	// todo: 保存状态
 }
+
+func (s *Scheduler) GetTask(domain, task string) *task.Task {
+	if b, ok := s.browsers[domain]; ok {
+		return b.query(task)
+	}
+	return nil
+}
+
+func (s *Scheduler) DeleteTask(domain, task string) *task.Task {
+	if b, ok := s.browsers[domain]; ok {
+		return b.delete(task)
+	}
+	for _, b := range s.browsers {
+		if t := b.delete(task); t != nil {
+			return t
+		}
+	}
+	return nil
+}

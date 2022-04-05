@@ -84,6 +84,7 @@ func (e *HTMLElement) Visit(u string) error {
 	if URL.Scheme == "//" {
 		URL.Scheme = e.Request.URL.Scheme
 	}
+	logx.Infof("[parsing] Task[%x] add sub task: %v", e.task.ID, URL.String())
 	return e.Request.collector.visit(e.task, URL)
 }
 
