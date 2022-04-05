@@ -65,10 +65,12 @@ func (d *DomainBrowser) list() []*task.Task {
 func (d *DomainBrowser) begin(ctx context.Context) {
 	logx.Infof("[scheduler] The Browser of domain[%s] begin, process num: %d", d.domain, Parallelism)
 	var wg sync.WaitGroup
-	for index := 0; index < Parallelism; index++ {
+	for i := 0; i < Parallelism; i++ {
 		// 因为可能在创建ctx之前, 已经有任务被添加进来了
 		wait.WaitUntil(func() bool { return ctx != nil })
+		index := i
 		go func() {
+			wg.Add(1)
 			for {
 				select {
 				case <-ctx.Done():
@@ -81,11 +83,11 @@ func (d *DomainBrowser) begin(ctx context.Context) {
 				time.Sleep(time.Second * 3)
 			}
 		}()
-		wg.Add(1)
 	}
 
 	wg.Wait()
 	d.close()
+	delete(d.scheduler.browsers, d.domain)
 	logx.Infof("[scheduler] The Browser of domain[%s] has been closed", d.domain)
 }
 

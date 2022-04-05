@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/engine/download"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
@@ -48,7 +49,9 @@ func (s *Scheduler) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			s.close()
+			// 等等所有browsers自行退出
 			wait.WaitUntil(func() bool { return len(s.browsers) == 0 })
+			logx.Infof("[scheduler] The scheduler has been stopped")
 			return
 		case t := <-s.taskQueue:
 			t.SetState(task.StateInit)

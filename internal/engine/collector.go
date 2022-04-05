@@ -59,6 +59,7 @@ func NewCollector(config *config.Config) (*Collector, error) {
 func (c *Collector) Run(ctx context.Context) {
 	logx.Infof("[collector] Already running...")
 	c.scheduler.Run(ctx)
+	logx.Infof("[collector] has been stopped")
 }
 
 func (c *Collector) Scheduler() *schedule.Scheduler {

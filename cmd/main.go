@@ -65,4 +65,5 @@ func main() {
 	go manager.NewManager(collector).Run(stopCtx)
 
 	collector.Run(stopCtx)
+	logx.Infof("main has been exit")
 }
