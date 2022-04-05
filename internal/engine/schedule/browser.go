@@ -69,7 +69,7 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 	for {
 		select {
 		case <-ctx.Done():
-			logx.Infof("[scheduler-%d] The process[%s-%d] will stop", index, d.domain, index)
+			logx.Infof("[scheduler] [process-%d] The Process[%s-%d] will stop", index, d.domain, index)
 			wg.Done()
 			return
 		default:
@@ -78,12 +78,19 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 				time.Sleep(2 * time.Second)
 				continue
 			}
-			logx.Infof("[scheduler-%d] The task[%x] begin to run, url: %s", index, t.ID, t.Url)
+			logx.Infof("[scheduler] [process-%d] Task[%x] begin to run, url: %s", index, t.ID, t.Url)
 			t.SetState(task.StateRunning)
-			d.schedule.download.Get(t)
-			logx.Infof("[scheduler-%d] The task[%x] done, status: %v", index, t.ID, task.StateStatus[t.State])
-			time.Sleep(time.Second * 3)
+			req, resp, err := d.schedule.download.Get(t)
+			if err != nil {
+				logx.Errorf("[scheduler] [process-%d] Task[%x] request(GET) fail: %v", index, t.ID, err)
+				t.RecordErr(err.ErrCode(), err.Error())
+			} else {
+				logx.Infof("[scheduler] [process-%d] Task[%x] request.Do finish, will handle Response", index, t.ID)
+				t.HandleOnResponse(req, resp)
+				logx.Infof("[scheduler] [process-%d] Task[%x] success", index, t.ID)
+			}
 		}
+		time.Sleep(time.Second * 3)
 	}
 }
 

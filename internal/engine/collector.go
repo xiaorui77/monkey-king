@@ -76,32 +76,17 @@ func (c *Collector) Visit(parent *task.Task, rawUrl string) error {
 	return c.visit(parent, u)
 }
 
-// Download 下载保存, todo: 待升级
+// Download 下载保存, todo: 移动到parsing中
 func (c *Collector) Download(t *task.Task, name, path string, urlRaw string) error {
-	save := func(t *task.Task, req *http.Request, resp *http.Response) error {
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-
-		reader := &fileutil.VisualReader{
-			Reader: resp.Body,
-			Total:  resp.ContentLength,
-		}
-		bs, err := reader.ReadAll()
-		if err != nil {
-			logx.Errorf("[collector] reading when: %v/%v from resp.Body failed: %v", reader.Cur, reader.Total, err)
-			return fmt.Errorf("reading resp.Body failed: %v", err)
-		}
-		logx.Infof("[collector] Task[%x] save file [%s] to: [%s]", t.ID, name, path)
-		return fileutil.SaveImage(bs, path, name)
-	}
-
 	u, err := url.Parse(urlRaw)
 	if err != nil {
 		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	c.scheduler.AddTask(task.NewTask(name, t, u, nil, save).SetPriority(1))
+	c.scheduler.AddTask(task.NewTask(name, t, u, map[string]interface{}{
+		"save_path": path,
+		"save_name": name,
+	}, c.save).SetPriority(1))
 	return nil
 }
 
@@ -153,6 +138,27 @@ func (c *Collector) scrape(task *task.Task, req *http.Request, resp *http.Respon
 	c.recordVisit(req.URL.String())
 	logx.Infof("[collector] Task[%x] scrape and handle done.", task.ID)
 	return nil
+}
+
+// 回调函数: 保存文件
+func (c *Collector) save(t *task.Task, _ *http.Request, resp *http.Response) error {
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	name := t.Meta["save_name"].(string)
+	path := t.Meta["save_path"].(string)
+
+	reader := &fileutil.VisualReader{
+		Reader: resp.Body,
+		Total:  resp.ContentLength,
+	}
+	bs, err := reader.ReadAll()
+	if err != nil {
+		logx.Errorf("[collector] reading when: %v/%v from resp.Body failed: %v", reader.Cur, reader.Total, err)
+		return fmt.Errorf("reading resp.Body failed: %v", err)
+	}
+	logx.Infof("[collector] Task[%x] save file [%s] to: [%s]", t.ID, name, path)
+	return fileutil.SaveImage(bs, path, name)
 }
 
 // 借些页面, 处理回调
