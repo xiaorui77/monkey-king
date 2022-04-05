@@ -18,7 +18,7 @@ type OnResponse func(req *http.Request, resp *http.Response)
 type OnResponseError func(resp *http.Response, err error)
 
 const (
-	StateKnown = iota
+	StateUnknown = iota
 	StateRunning
 	StateInit
 	StateFail
@@ -34,17 +34,22 @@ var StateStatus = map[int]string{
 }
 
 type Task struct {
-	ID       uint64
-	ParentId uint64
-	Name     string
-	State    int
-	Domain   string
-	Priority int
-	Url      *url.URL
+	ID       uint64   `json:"id"`
+	ParentId uint64   `json:"parentId"`
+	Parent   *Task    `json:"-"`
+	Depth    int      `json:"depth"`
+	Name     string   `json:"name"`
+	State    int      `json:"state"`
+	Url      *url.URL `json:"url"`
+	Domain   string   `json:"domain"`
 
-	Meta map[string]interface{}
-	Time time.Time
+	// 优先级: [0, MAX_INT), 值越大优先级越高
+	Priority int `json:"priority"`
 
+	Meta map[string]interface{} `json:"meta"`
+	Time time.Time              `json:"time"`
+
+	// 主回调函数, 后续考虑优化合并
 	callback                callback
 	onResponseHandlers      []OnResponse
 	onResponseErrorHandlers []OnResponseError
@@ -56,13 +61,15 @@ func NewTask(name string, parent *Task, u *url.URL, meta map[string]interface{},
 		Name:     name,
 		Meta:     meta,
 		Url:      u,
-		State:    StateKnown,
+		State:    StateUnknown,
 		Time:     time.Now(),
 		callback: fun,
 	}
 	if parent != nil {
 		t.Domain = parent.Domain
 		t.ParentId = parent.ID
+		t.Parent = parent
+		t.Depth = parent.Depth + 1
 	} else {
 		t.Domain = domain.CalDomain(u)
 	}
@@ -74,6 +81,11 @@ func (t *Task) SetPriority(p int) *Task {
 	return t
 }
 
+func (t *Task) ResetDepth() *Task {
+	t.Depth = 0
+	return t
+}
+
 func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) {
 	for _, handler := range t.onResponseHandlers {
 		handler(req, resp)
@@ -81,14 +93,14 @@ func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) {
 
 	if resp.StatusCode == http.StatusOK {
 		if err := t.callback(t, req, resp); err != nil {
-			logx.Warnf("[schedule] Task[%x] failed: %v", t.ID, err)
+			logx.Debugf("[schedule] Task[%x] failed: %v", t.ID, err)
 			t.SetState(StateFail)
 		} else {
-			logx.Infof("[schedule] Task[%x] done.", t.ID)
+			logx.Debugf("[schedule] Task[%x] success.", t.ID)
 			t.SetState(StateSuccess)
 		}
 	} else {
-		logx.Warnf("[schedule] The task[%x] failed with unknown status code[%d]", t.ID, resp.StatusCode)
+		logx.Debugf("[schedule] The task[%x] failed with unknown status code[%d]", t.ID, resp.StatusCode)
 		t.SetState(StateFail)
 	}
 }

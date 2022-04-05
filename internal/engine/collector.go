@@ -63,6 +63,7 @@ func (c *Collector) Run(ctx context.Context) {
 
 // Visit 是对外的接口, 可以访问指定url
 func (c *Collector) Visit(parent *task.Task, rawUrl string) error {
+	logx.Infof("[collector] Visit url: %v", rawUrl)
 	if len(rawUrl) == 0 {
 		return errors.New("rawUrl is empty")
 	}
@@ -76,7 +77,7 @@ func (c *Collector) Visit(parent *task.Task, rawUrl string) error {
 }
 
 // Download 下载保存, todo: 待升级
-func (c *Collector) Download(parent *task.Task, name, path string, urlRaw string) error {
+func (c *Collector) Download(t *task.Task, name, path string, urlRaw string) error {
 	save := func(t *task.Task, req *http.Request, resp *http.Response) error {
 		defer func() {
 			_ = resp.Body.Close()
@@ -91,7 +92,7 @@ func (c *Collector) Download(parent *task.Task, name, path string, urlRaw string
 			logx.Errorf("[collector] reading when: %v/%v from resp.Body failed: %v", reader.Cur, reader.Total, err)
 			return fmt.Errorf("reading resp.Body failed: %v", err)
 		}
-		logx.Debugf("[collector] save file [%s] to: [%s]", name, path)
+		logx.Infof("[collector] Task[%x] save file [%s] to: [%s]", t.ID, name, path)
 		return fileutil.SaveImage(bs, path, name)
 	}
 
@@ -100,7 +101,7 @@ func (c *Collector) Download(parent *task.Task, name, path string, urlRaw string
 		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	c.scheduler.AddTask(task.NewTask(name, parent, u, nil, save).SetPriority(1))
+	c.scheduler.AddTask(task.NewTask(name, t, u, nil, save).SetPriority(1))
 	return nil
 }
 
@@ -127,7 +128,8 @@ func (c *Collector) AddTask(t *task.Task) {
 	c.scheduler.AddTask(t)
 }
 
-// 处理抓取到的页面, todo: 对页面分类
+// 回调函数: 处理抓取到的页面
+// todo: 对页面分类
 func (c *Collector) scrape(task *task.Task, req *http.Request, resp *http.Response) error {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -146,10 +148,10 @@ func (c *Collector) scrape(task *task.Task, req *http.Request, resp *http.Respon
 	}
 
 	// 通过task下载get到页面后通过回调执行
-	logx.Debugf("[collector] 下载完成, handle callback handleOnHtml[%v]", req.URL.String())
+	logx.Debugf("[collector] Task[%x] scrape done, begin handleOnHtml()", task.ID)
 	c.handleOnHtml(task, response)
 	c.recordVisit(req.URL.String())
-	logx.Debugf("[collector] scrape 分析完成, handleOnHtml[%v]", req.URL.String())
+	logx.Infof("[collector] Task[%x] scrape and handle done.", task.ID)
 	return nil
 }
 
@@ -164,7 +166,7 @@ func (c *Collector) handleOnHtml(task *task.Task, resp *Response) {
 		index := 1
 		doc.Find(callback.Selector).Each(func(_ int, selection *goquery.Selection) {
 			for _, node := range selection.Nodes {
-				e := NewHTMLElement(resp, doc, selection, node, index)
+				e := NewHTMLElement(task, resp, doc, selection, node, index)
 				index++
 				callback.fun(task, e)
 			}

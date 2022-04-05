@@ -13,7 +13,7 @@ import (
 
 const (
 	// Parallelism is maximum concurrent number of the same domain.
-	Parallelism = 3
+	Parallelism = 5
 
 	taskQueueSize = 100
 )

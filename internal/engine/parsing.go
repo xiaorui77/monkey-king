@@ -2,6 +2,7 @@ package engine
 
 import (
 	"github.com/PuerkitoBio/goquery"
+	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"golang.org/x/net/html"
 	"net/url"
@@ -23,7 +24,8 @@ type Request struct {
 	URL       *url.URL
 }
 
-func (r *Request) absoluteURL(u string) string {
+// AbsoluteURL 根据相对路径获取完整url
+func (r *Request) AbsoluteURL(u string) string {
 	if strings.HasPrefix(u, "#") {
 		return ""
 	}
@@ -57,9 +59,9 @@ type HTMLElement struct {
 }
 
 // NewHTMLElement 创建可操作的HTML结构
-func NewHTMLElement(resp *Response, doc *goquery.Document, DOM *goquery.Selection, node *html.Node, index int) *HTMLElement {
+func NewHTMLElement(t *task.Task, resp *Response, doc *goquery.Document, DOM *goquery.Selection, node *html.Node, index int) *HTMLElement {
 	return &HTMLElement{
-
+		task:     t,
 		Request:  resp.Request,
 		Response: resp,
 
@@ -71,7 +73,21 @@ func NewHTMLElement(resp *Response, doc *goquery.Document, DOM *goquery.Selectio
 	}
 }
 
-func (e HTMLElement) GetText(selector, def string) string {
+func (e *HTMLElement) Visit(u string) error {
+	logx.Infof("[Parsing] Task[%x] continue Visit() url: %v", e.task.ID, u)
+	URL, err := e.Request.URL.Parse(u)
+	if err != nil {
+		return err
+	}
+	// 片段信息置空, 片段信息即url中#后的内容
+	URL.Fragment = ""
+	if URL.Scheme == "//" {
+		URL.Scheme = e.Request.URL.Scheme
+	}
+	return e.Request.collector.visit(e.task, URL)
+}
+
+func (e *HTMLElement) GetText(selector, def string) string {
 	if str := e.Doc.Find(selector).Text(); str != "" {
 		return html.UnescapeString(str)
 	}

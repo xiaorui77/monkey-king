@@ -93,7 +93,7 @@ func (i *InputWrap) OnCompleteCmd() {
 
 func (i *InputWrap) OnCompleteInput() {
 	str := strings.TrimSpace(i.GetText())
-	if str != "" && i.app.collector.Visit(str) == nil {
+	if str != "" && i.app.collector.Visit(nil, str) == nil {
 		i.SetText("")
 		i.Active(false, ModeNode)
 	}

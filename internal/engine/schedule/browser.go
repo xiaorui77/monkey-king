@@ -16,6 +16,9 @@ type DomainBrowser struct {
 	schedule *Scheduler
 	domain   string
 	normal   *TaskQueue
+
+	// 最大层级, 包括下一页等
+	MaxDepth int
 }
 
 func NewDomainBrowser(s *Scheduler, host string) *DomainBrowser {
@@ -23,10 +26,15 @@ func NewDomainBrowser(s *Scheduler, host string) *DomainBrowser {
 		schedule: s,
 		domain:   host,
 		normal:   NewTaskQueue(),
+
+		MaxDepth: 6,
 	}
 }
 
 func (d *DomainBrowser) push(task *task.Task) {
+	if task == nil || task.Depth > d.MaxDepth {
+		return
+	}
 	d.normal.push(task)
 }
 
@@ -54,14 +62,14 @@ func (d *DomainBrowser) begin(ctx context.Context) {
 
 	wg.Wait()
 	d.close()
-	logx.Infof("[schedule] The Browser of domain[%s] has been closed", d.domain)
+	logx.Infof("[scheduler] The Browser of domain[%s] has been closed", d.domain)
 }
 
 func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index int) {
 	for {
 		select {
 		case <-ctx.Done():
-			logx.Infof("[schedule] The process[%s-%d] will stop", d.domain, index)
+			logx.Infof("[scheduler-%d] The process[%s-%d] will stop", index, d.domain, index)
 			wg.Done()
 			return
 		default:
@@ -70,11 +78,11 @@ func (d *DomainBrowser) process(ctx context.Context, wg *sync.WaitGroup, index i
 				time.Sleep(2 * time.Second)
 				continue
 			}
-			logx.Infof("[schedule-%d] The task[%x] begin to run, url: %s", index, t.ID, t.Url)
+			logx.Infof("[scheduler-%d] The task[%x] begin to run, url: %s", index, t.ID, t.Url)
 			t.SetState(task.StateRunning)
 			d.schedule.download.Get(t)
+			logx.Infof("[scheduler-%d] The task[%x] done, status: %v", index, t.ID, task.StateStatus[t.State])
 			time.Sleep(time.Second * 3)
-			logx.Debugf("[schedule-%d] The task[%x] done.", index, t.ID)
 		}
 	}
 }
@@ -128,8 +136,9 @@ func (tq *TaskQueue) next() *task.Task {
 
 	for i := 0; i < len(tq.tasks); i++ {
 		j := (tq.offset + i) % len(tq.tasks)
-		if tq.tasks[j].State != task.StateSuccess {
+		if tq.tasks[j].State == task.StateInit || tq.tasks[j].State == task.StateFail {
 			tq.offset = j + 1
+			tq.tasks[j].SetState(task.StateUnknown)
 			return tq.tasks[j]
 		}
 	}

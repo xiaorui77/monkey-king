@@ -19,7 +19,7 @@ type Downloader struct {
 func NewDownloader(ctx context.Context) *Downloader {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		logx.Errorf("[scheduler] new cookiejar failed: %v", err)
+		logx.Errorf("[downloader] new cookiejar failed: %v", err)
 		return nil
 	}
 
@@ -49,7 +49,7 @@ func NewDownloader(ctx context.Context) *Downloader {
 func (d *Downloader) Get(t *task.Task) {
 	req, err := http.NewRequestWithContext(d.ctx, http.MethodGet, t.Url.String(), nil)
 	if err != nil {
-		logx.Errorf("[download] request.Get failed: %v")
+		logx.Errorf("[downloader] request.Get failed: %v")
 		t.SetState(task.StateFail)
 		return
 	}
@@ -57,12 +57,12 @@ func (d *Downloader) Get(t *task.Task) {
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		logx.Warnf("[download] request.Do failed: %v", err)
+		logx.Warnf("[downloader] request.Do failed: %v", err)
 		t.HandleOnResponseErr(resp, err)
 		return
 	}
 
-	logx.Infof("[download] request.Do finish, begin handle task[%x] OnResponse", t.ID)
+	logx.Infof("[downloader] Task[%x] request.Do finish, begin task.HandleOnResponse()", t.ID)
 	t.HandleOnResponse(req, resp)
 }
 

@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	girlRe   = `body > div:nth-child(6) > div > div.pic > img`
+	girlRe   = `body > div:nth-child(6) > div > div.pic img`
 	pageRe   = `body > div:nth-child(6) > div > div.row.col6.clearfix > dl > dt > a`
-	pagingRe = `body > div:nth-child(8) > div > div.pc_pagination > a:nth-child(11)`
+	pagingRe = `body > div:nth-child(8) > div > div.pc_pagination > a:nth-last-child(2)`
 )
 
 var basePath = "./data"
@@ -28,7 +28,7 @@ func main() {
 	// option
 	logx.Init("monkey-king", logx.WithInstance("monkey-king-"+math.RandomStr(5, 36)),
 		logx.WithLevel(logx.DebugLevel), logx.WithReportCaller(true),
-		logx.WithHook(hooks.NewEsHook("http://192.168.43.104:9200")))
+		logx.WithHook(hooks.NewEsHook("http://192.168.17.1:9200")))
 
 	conf := config.InitConfig()
 	collector, err := engine.NewCollector(conf)
@@ -37,7 +37,7 @@ func main() {
 		return
 	}
 
-	// 单页
+	// 每个单元下所有元素
 	collector.OnHTMLAny(girlRe, func(t *task.Task, e *engine.HTMLElement) {
 		name := e.GetText("body > div:nth-child(6) > div > h1", "girl-"+string(rand.Int31n(1000)))
 		file := fmt.Sprintf("%v-%03d", name, e.Index)
@@ -45,14 +45,14 @@ func main() {
 		_ = collector.Download(t, file, path, e.Attr[0].Val)
 	})
 
-	// 列表跳转到page
+	// 每页内所有单元
 	collector.OnHTMLAny(pageRe, func(t *task.Task, ele *engine.HTMLElement) {
-		_ = collector.Visit(t, ele.Attr[0].Val)
+		_ = ele.Visit(ele.Attr[0].Val)
 	})
 
-	// 分页
+	// 下个页
 	collector.OnHTMLAny(pagingRe, func(t *task.Task, ele *engine.HTMLElement) {
-		_ = collector.Visit(t, ele.Attr[0].Val)
+		_ = ele.Visit(ele.Attr[0].Val)
 	})
 
 	// ui
