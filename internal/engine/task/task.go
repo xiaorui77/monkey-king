@@ -2,8 +2,8 @@ package task
 
 import (
 	"fmt"
-	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/monker-king/internal/utils/domain"
+	error2 "github.com/xiaorui77/monker-king/pkg/error"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -88,23 +88,18 @@ func (t *Task) ResetDepth() *Task {
 	return t
 }
 
-func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) {
+func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) error2.Error {
 	for _, handler := range t.onResponseHandlers {
 		handler(req, resp)
 	}
 
-	if resp.StatusCode == http.StatusOK {
-		if err := t.callback(t, req, resp); err != nil {
-			logx.Debugf("[schedule] Task[%x] failed: %v", t.ID, err)
-			t.RecordErr(ErrCallback, err.Error())
-		} else {
-			logx.Debugf("[schedule] Task[%x] success.", t.ID)
-			t.SetState(StateSuccess)
-		}
-	} else {
-		logx.Debugf("[schedule] The task[%x] failed with unknown status code[%d]", t.ID, resp.StatusCode)
-		t.RecordErr(ErrHttpUnknown+resp.StatusCode, "response code is not ok")
+	if resp.StatusCode != http.StatusOK {
+		return &error2.Err{Code: ErrHttpUnknown + resp.StatusCode, Err: fmt.Errorf("response code is not ok")}
 	}
+	if err := t.callback(t, req, resp); err != nil {
+		return &error2.Err{Err: err, Code: ErrCallback}
+	}
+	return nil
 }
 
 func (t *Task) SetState(state int) {

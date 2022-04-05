@@ -15,6 +15,9 @@ const (
 	// Parallelism is maximum concurrent number of the same domain.
 	Parallelism = 5
 
+	// MaxDepth 为默认的最大深度
+	MaxDepth = 3
+
 	taskQueueSize = 100
 )
 
