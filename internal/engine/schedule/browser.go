@@ -8,10 +8,10 @@ import (
 	"time"
 )
 
-// DomainBrowser 在同一个域名下的调度器
+// Browser 在同一个域名下的调度器
 // 1. 处理同一个Domain下的优先级关系
 // 2. 管理cookie等
-type DomainBrowser struct {
+type Browser struct {
 	scheduler *Scheduler
 	domain    string
 	normal    *TaskQueue
@@ -20,8 +20,8 @@ type DomainBrowser struct {
 	MaxDepth int
 }
 
-func NewDomainBrowser(s *Scheduler, host string) *DomainBrowser {
-	return &DomainBrowser{
+func NewBrowser(s *Scheduler, host string) *Browser {
+	return &Browser{
 		scheduler: s,
 		domain:    host,
 		normal:    NewTaskQueue(),
@@ -30,53 +30,53 @@ func NewDomainBrowser(s *Scheduler, host string) *DomainBrowser {
 	}
 }
 
-func (d *DomainBrowser) push(task *task.Task) {
-	if task == nil || task.Depth > d.MaxDepth {
+func (b *Browser) push(task *task.Task) {
+	if task == nil || task.Depth > b.MaxDepth {
 		return
 	}
-	d.normal.push(task)
+	b.normal.push(task)
 }
 
-func (d *DomainBrowser) delete(name string) *task.Task {
-	return d.normal.delete(name)
+func (b *Browser) delete(name string) *task.Task {
+	return b.normal.delete(name)
 }
 
-func (d *DomainBrowser) query(name string) *task.Task {
-	return d.normal.query(name)
+func (b *Browser) query(name string) *task.Task {
+	return b.normal.query(name)
 }
 
 // todo
-func (d *DomainBrowser) next() *task.Task {
-	return d.normal.next()
+func (b *Browser) next() *task.Task {
+	return b.normal.next()
 }
 
-func (d *DomainBrowser) refresh() {
-	d.normal.refresh()
+func (b *Browser) refresh() {
+	b.normal.refresh()
 }
 
-func (d *DomainBrowser) list() []*task.Task {
-	res := make([]*task.Task, 0, len(d.normal.list()))
-	res = append(res, d.normal.list()...)
+func (b *Browser) list() []*task.Task {
+	res := make([]*task.Task, 0, len(b.normal.list()))
+	res = append(res, b.normal.list()...)
 	return res
 }
 
 // schedule all tasks by multi-thread.
-func (d *DomainBrowser) begin(ctx context.Context) {
-	logx.Infof("[scheduler] The Browser[%s] begin, process num: %d", d.domain, Parallelism)
+func (b *Browser) begin(ctx context.Context) {
+	logx.Infof("[scheduler] The Browser[%s] begin, process num: %d", b.domain, Parallelism)
 	var wg sync.WaitGroup
 	for i := 0; i < Parallelism; i++ {
 		index := i
 		wg.Add(1)
 		go func() {
-			logx.Infof("[scheduler] Browser[%s] start process index: %d", d.domain, index)
+			logx.Infof("[scheduler] Browser[%s] start process index: %d", b.domain, index)
 			for {
 				select {
 				case <-ctx.Done():
-					logx.Infof("[scheduler] Browser[%s] Process[%d] will stop", d.domain, index)
+					logx.Infof("[scheduler] Browser[%s] Process[%d] will stop", b.domain, index)
 					wg.Done()
 					return
 				default:
-					d.process(index)
+					b.process(ctx, index)
 				}
 				time.Sleep(time.Second * TaskInterval)
 			}
@@ -84,16 +84,16 @@ func (d *DomainBrowser) begin(ctx context.Context) {
 	}
 
 	wg.Wait()
-	logx.Infof("[scheduler] The Browser[%s] will close", d.domain)
-	d.close()
-	logx.Infof("[scheduler] The Browser[%s] has been closed", d.domain)
+	logx.Infof("[scheduler] The Browser[%s] will close", b.domain)
+	b.close()
+	logx.Infof("[scheduler] The Browser[%s] has been closed", b.domain)
 }
 
-func (d *DomainBrowser) process(index int) {
-	t := d.next()
+func (b *Browser) process(ctx context.Context, index int) {
+	t := b.next()
 	if t == nil {
 		logx.Debugf("[scheduler] [process-%d] no tasks", index)
-		d.refresh()
+		b.refresh()
 		time.Sleep(time.Second * 3)
 		return
 	}
@@ -116,16 +116,16 @@ func (d *DomainBrowser) process(index int) {
 	logx.Infof("[scheduler] [process-%d] Task[%x] run success", index, t.ID)
 }
 
-func (d *DomainBrowser) close() {
+func (b *Browser) close() {
 	// todo: close all task queue of the domain
 
 	// 自我清理
-	delete(d.scheduler.browsers, d.domain)
-	d.normal = nil
-	d.scheduler = nil
+	delete(b.scheduler.browsers, b.domain)
+	b.normal = nil
+	b.scheduler = nil
 }
 
-func (d *DomainBrowser) MarshalJSON() ([]byte, error) {
+func (b *Browser) MarshalJSON() ([]byte, error) {
 	return nil, nil
 }
 

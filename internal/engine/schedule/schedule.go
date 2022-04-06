@@ -33,13 +33,13 @@ type Scheduler struct {
 
 	taskQueue chan *task.Task
 	// 以domain分开的队列
-	browsers map[string]*DomainBrowser
+	browsers map[string]*Browser
 }
 
 func NewRunner(store storage.Store) *Scheduler {
 	return &Scheduler{
 		taskQueue: make(chan *task.Task, taskQueueSize),
-		browsers:  map[string]*DomainBrowser{},
+		browsers:  map[string]*Browser{},
 		store:     store,
 	}
 }
@@ -60,7 +60,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 		case t := <-s.taskQueue:
 			t.SetState(task.StateInit)
 			if _, ok := s.browsers[t.Domain]; !ok {
-				s.browsers[t.Domain] = NewDomainBrowser(s, t.Domain)
+				s.browsers[t.Domain] = NewBrowser(s, t.Domain)
 				go s.browsers[t.Domain].begin(ctx)
 			}
 			s.browsers[t.Domain].push(t)
