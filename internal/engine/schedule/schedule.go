@@ -16,10 +16,13 @@ const (
 	// Parallelism is maximum concurrent number of the same domain.
 	Parallelism = 5
 
-	// MaxDepth 为默认的最大深度
+	// MaxDepth 为Task默认的最大深度
 	MaxDepth = 3
 
 	taskQueueSize = 100
+
+	// TaskInterval Task执行间隔
+	TaskInterval = 3
 )
 
 type Scheduler struct {
@@ -48,9 +51,9 @@ func (s *Scheduler) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			s.close()
 			// 等等所有browsers自行退出
 			wait.WaitUntil(func() bool { return len(s.browsers) == 0 })
+			s.close()
 			logx.Infof("[scheduler] The scheduler has been stopped")
 			return
 		case t := <-s.taskQueue:

@@ -3,7 +3,6 @@ package schedule
 import (
 	"context"
 	"github.com/xiaorui77/goutils/logx"
-	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"sync"
 	"time"
@@ -63,39 +62,38 @@ func (d *DomainBrowser) list() []*task.Task {
 
 // schedule all tasks by multi-thread.
 func (d *DomainBrowser) begin(ctx context.Context) {
-	logx.Infof("[scheduler] The Browser of domain[%s] begin, process num: %d", d.domain, Parallelism)
+	logx.Infof("[scheduler] The Browser[%s] begin, process num: %d", d.domain, Parallelism)
 	var wg sync.WaitGroup
 	for i := 0; i < Parallelism; i++ {
-		// 因为可能在创建ctx之前, 已经有任务被添加进来了
-		wait.WaitUntil(func() bool { return ctx != nil })
 		index := i
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
+			logx.Infof("[scheduler] Browser[%s] start process index: %d", d.domain, index)
 			for {
 				select {
 				case <-ctx.Done():
-					logx.Infof("[scheduler] [process-%d] The Process[%s-%d] will stop", index, d.domain, index)
+					logx.Infof("[scheduler] Browser[%s] Process[%d] will stop", d.domain, index)
 					wg.Done()
 					return
 				default:
 					d.process(index)
 				}
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Second * TaskInterval)
 			}
 		}()
 	}
 
 	wg.Wait()
+	logx.Infof("[scheduler] The Browser[%s] will close", d.domain)
 	d.close()
-	delete(d.scheduler.browsers, d.domain)
-	logx.Infof("[scheduler] The Browser of domain[%s] has been closed", d.domain)
+	logx.Infof("[scheduler] The Browser[%s] has been closed", d.domain)
 }
 
 func (d *DomainBrowser) process(index int) {
 	t := d.next()
 	if t == nil {
-		d.refresh()
 		logx.Debugf("[scheduler] [process-%d] no tasks", index)
+		d.refresh()
 		time.Sleep(time.Second * 3)
 		return
 	}
@@ -120,6 +118,11 @@ func (d *DomainBrowser) process(index int) {
 
 func (d *DomainBrowser) close() {
 	// todo: close all task queue of the domain
+
+	// 自我清理
+	delete(d.scheduler.browsers, d.domain)
+	d.normal = nil
+	d.scheduler = nil
 }
 
 func (d *DomainBrowser) MarshalJSON() ([]byte, error) {
@@ -185,21 +188,24 @@ func (tq *TaskQueue) refresh() {
 		if t.State == task.StateFail {
 			if len(t.ErrDetails) > 0 {
 				n := 0
-				for _, detail := range t.ErrDetails {
-					if detail.ErrCode == task.ErrHttpNotFount {
+				for i := len(t.ErrDetails) - 1; i >= 0; i-- {
+					if t.ErrDetails[i].ErrCode == task.ErrHttpNotFount {
 						n++
 					} else {
 						break
 					}
 				}
-				if n > 2 {
+				if n < 2 {
+					logx.Infof("[browser] Task[%x] can be retry, last err: %v", t.ID, t.ErrDetails[len(t.ErrDetails)-1])
 					t.SetState(task.StateInit)
 				}
 				continue
+			} else {
+				logx.Errorf("[debug] task.State == fail and task.ErrDetails is empty, info: %v", t)
 			}
-			t.SetState(task.StateInit)
 		}
 	}
+	tq.offset = 0
 }
 
 func (tq *TaskQueue) query(name string) *task.Task {

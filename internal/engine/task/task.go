@@ -94,7 +94,7 @@ func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) error2.E
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return &error2.Err{Code: ErrHttpUnknown + resp.StatusCode, Err: fmt.Errorf("response code is not ok")}
+		return &error2.Err{Code: ErrHttpUnknown + resp.StatusCode, Err: fmt.Errorf("response code is not ok[%v]", resp.StatusCode)}
 	}
 	if err := t.callback(t, req, resp); err != nil {
 		return &error2.Err{Err: err, Code: ErrCallback}
