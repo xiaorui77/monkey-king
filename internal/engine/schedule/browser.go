@@ -3,6 +3,7 @@ package schedule
 import (
 	"context"
 	"github.com/xiaorui77/goutils/logx"
+	"github.com/xiaorui77/goutils/timeutils"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ func (b *Browser) begin(ctx context.Context) {
 		index := i
 		wg.Add(1)
 		go func() {
-			logx.Infof("[scheduler] Browser[%s] start process index: %d", b.domain, index)
+			logx.Infof("[scheduler] Browser[%s] Process[%d] start process", b.domain, index)
 			for {
 				select {
 				case <-ctx.Done():
@@ -92,28 +93,41 @@ func (b *Browser) begin(ctx context.Context) {
 func (b *Browser) process(ctx context.Context, index int) {
 	t := b.next()
 	if t == nil {
-		logx.Debugf("[scheduler] [process-%d] no tasks", index)
+		logx.Debugf("[process-%d] no found tasks", index)
 		b.refresh()
 		time.Sleep(time.Second * 3)
 		return
 	}
-	logx.Infof("[scheduler] [process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
+	logx.Infof("[process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
 	t.RecordStart()
-	req, resp, err := d.scheduler.download.Get(t)
+
+	// 设置超时并使用GET进行请求
+	tCtx, cancelFunc := context.WithTimeout(ctx, b.timeout(t))
+	defer cancelFunc()
+	req, resp, err := b.scheduler.download.Get(tCtx, t)
 	if err != nil {
-		logx.Errorf("[scheduler] [process-%d] Task[%x] request(GET) fail: %v", index, t.ID, err)
+		logx.Errorf("[process-%d] Task[%x] request(GET) fail: %v", index, t.ID, err)
 		t.RecordErr(err.ErrCode(), err.Error())
 		return
 	}
 
-	logx.Infof("[scheduler] [process-%d] Task[%x] request.Do finish, will handle Response", index, t.ID)
+	logx.Infof("[scheduler] [process-%d] Task[%x] request.Do finish, will handle OnResponse", index, t.ID)
 	if err := t.HandleOnResponse(req, resp); err != nil {
-		logx.Errorf("[scheduler] Task[%x] failed: %v", t.ID, err)
+		logx.Errorf("[process-%d] Task[%x] handle OnResponse failed: %v", index, t.ID, err)
 		t.RecordErr(err.ErrCode(), err.Error())
 		return
 	}
 	t.RecordSuccess()
-	logx.Infof("[scheduler] [process-%d] Task[%x] run success", index, t.ID)
+	logx.Infof("[process-%d] Task[%x] run success", index, t.ID)
+}
+
+// todo: 补充完善
+func (b *Browser) timeout(t *task.Task) time.Duration {
+	l := len(t.ErrDetails)
+	if l == 0 {
+		return DefaultTimeout
+	}
+	return timeutils.Min(DefaultTimeout+time.Second*15*time.Duration(l), MaxTimeout)
 }
 
 func (b *Browser) close() {

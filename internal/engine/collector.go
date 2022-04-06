@@ -113,7 +113,7 @@ func (c *Collector) AddTask(t *task.Task) {
 	if t == nil {
 		return
 	}
-	logx.Debugf("[scrape] add Parser Task: %v", t.String())
+	logx.Debugf("[scrape] add parsed Task:%v", t.String())
 	c.scheduler.AddTask(t)
 }
 
@@ -161,7 +161,7 @@ func (c *Collector) save(t *task.Task, _ *http.Request, resp *http.Response) err
 		logx.Errorf("[collector] fail reading when: %v/%v from resp.Body failed: %v", reader.Cur, reader.Total, err)
 		return fmt.Errorf("reading resp.Body when[%v/%v] failed: %v", reader.Cur, reader.Total, err)
 	}
-	logx.Infof("[collector] Task[%x] save file [%s] to: [%s]", t.ID, name, path)
+	logx.Infof("[collector] Task[%x] save file \"%s\" to: %s", t.ID, name, path)
 	return fileutil.SaveImage(bs, path, name)
 }
 

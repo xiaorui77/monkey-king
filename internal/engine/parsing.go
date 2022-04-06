@@ -74,7 +74,7 @@ func NewHTMLElement(t *task.Task, resp *Response, doc *goquery.Document, DOM *go
 }
 
 func (e *HTMLElement) Visit(u string) error {
-	logx.Infof("[Parsing] Task[%x] continue Visit() url: %v", e.task.ID, u)
+	logx.Infof("[Parsing] Task[%x] continue Visit url: %v", e.task.ID, u)
 	URL, err := e.Request.URL.Parse(u)
 	if err != nil {
 		return err

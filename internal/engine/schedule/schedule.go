@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"fmt"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/engine/download"
@@ -24,6 +25,10 @@ const (
 
 	// TaskInterval Task执行间隔
 	TaskInterval = 3
+
+	// DefaultTimeout is task 默认的超时时间
+	DefaultTimeout = time.Second * 60
+	MaxTimeout     = download.MaxTimeout
 )
 
 type Scheduler struct {
@@ -75,6 +80,7 @@ func (s *Scheduler) AddTask(t *task.Task) {
 }
 
 func (s *Scheduler) GetRows() []interface{} {
+	now := time.Now()
 	rows := make([]interface{}, 0, len(s.browsers))
 	for _, domain := range s.browsers {
 		ls := domain.list()
@@ -88,15 +94,21 @@ func (s *Scheduler) GetRows() []interface{} {
 
 		for _, t := range ls {
 			row := &model.TaskRow{
-				ID:     t.ID,
+				ID:     strconv.FormatUint(t.ID, 16),
 				Name:   t.Name,
 				Domain: domain.domain,
 				State:  t.GetState(),
 				URL:    t.Url.String(),
-				Age:    t.EndTime.Sub(t.StartTime).Truncate(time.Millisecond * 100).String(),
 			}
 			if t.State == task.StateFail && len(t.ErrDetails) > 0 {
 				row.LastError = strconv.Itoa(t.ErrDetails[len(t.ErrDetails)-1].ErrCode)
+			}
+			if !t.StartTime.IsZero() {
+				if t.EndTime.IsZero() {
+					row.Age = fmt.Sprintf("%0.1fs", now.Sub(t.StartTime).Seconds())
+				} else {
+					row.Age = fmt.Sprintf("%0.1fs", t.EndTime.Sub(t.StartTime).Seconds())
+				}
 			}
 			rows = append(rows, row)
 		}

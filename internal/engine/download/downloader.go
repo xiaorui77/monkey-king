@@ -12,12 +12,15 @@ import (
 	"time"
 )
 
+const (
+	MaxTimeout = time.Minute * 10
+)
+
 type Downloader struct {
 	client *http.Client
-	ctx    context.Context
 }
 
-func NewDownloader(ctx context.Context) *Downloader {
+func NewDownloader(_ context.Context) *Downloader {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		logx.Errorf("[downloader] new cookiejar failed: %v", err)
@@ -25,12 +28,11 @@ func NewDownloader(ctx context.Context) *Downloader {
 	}
 
 	return &Downloader{
-		ctx: ctx,
 		client: &http.Client{
 			Jar: jar,
 			// The timeout includes connection time, any redirects, and reading the response body.
 			// includes Dial、TLS handshake、Request、Resp.Headers、Resp.Body, excludes Idle
-			Timeout: time.Second * 90,
+			Timeout: MaxTimeout,
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
@@ -47,8 +49,10 @@ func NewDownloader(ctx context.Context) *Downloader {
 	}
 }
 
-func (d *Downloader) Get(t *task.Task) (*http.Request, *http.Response, error.Error) {
-	req, err := http.NewRequestWithContext(d.ctx, http.MethodGet, t.Url.String(), nil)
+// Get send an HTTP Request by GET Method.
+// Caller should close resp.Body when done reading from it.
+func (d *Downloader) Get(ctx context.Context, t *task.Task) (*http.Request, *http.Response, error.Error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.Url.String(), nil)
 	if err != nil {
 		logx.Errorf("[downloader] request.Get failed: %v")
 		return nil, nil, &error.Err{Err: err, Code: task.ErrNewRequest}

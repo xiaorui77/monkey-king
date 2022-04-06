@@ -89,6 +89,10 @@ func (t *Task) ResetDepth() *Task {
 }
 
 func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) error2.Error {
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
 	for _, handler := range t.onResponseHandlers {
 		handler(req, resp)
 	}
@@ -136,7 +140,7 @@ func (t *Task) RecordErr(code int, msg string) {
 }
 
 func (t *Task) String() string {
-	return fmt.Sprintf("[%s] %s", t.Name, t.Url.String())
+	return fmt.Sprintf("[%x]%s: %s", t.ID, t.Name, t.Url.String())
 }
 
 type ErrDetail struct {
@@ -145,6 +149,10 @@ type ErrDetail struct {
 	Cost    time.Duration
 	ErrCode int
 	ErrMsg  string
+}
+
+func (e *ErrDetail) String() string {
+	return fmt.Sprintf("ERR[%d] start:%s cost: %0.1fs msg: %s", e.ErrCode, e.Start.Format("15:04:05.000"), e.Cost.Seconds(), e.ErrMsg)
 }
 
 const (
