@@ -158,8 +158,8 @@ func (c *Collector) save(t *task.Task, _ *http.Request, resp *http.Response) err
 	}
 	bs, err := reader.ReadAll()
 	if err != nil {
-		logx.Errorf("[collector] reading when: %v/%v from resp.Body failed: %v", reader.Cur, reader.Total, err)
-		return fmt.Errorf("reading resp.Body failed: %v", err)
+		logx.Errorf("[collector] fail reading when: %v/%v from resp.Body failed: %v", reader.Cur, reader.Total, err)
+		return fmt.Errorf("reading resp.Body when[%v/%v] failed: %v", reader.Cur, reader.Total, err)
 	}
 	logx.Infof("[collector] Task[%x] save file [%s] to: [%s]", t.ID, name, path)
 	return fileutil.SaveImage(bs, path, name)

@@ -9,12 +9,13 @@ import (
 	"github.com/xiaorui77/monker-king/internal/storage"
 	"github.com/xiaorui77/monker-king/pkg/model"
 	"sort"
+	"strconv"
 	"time"
 )
 
 const (
 	// Parallelism is maximum concurrent number of the same domain.
-	Parallelism = 5
+	Parallelism = 4
 
 	// MaxDepth 为Task默认的最大深度
 	MaxDepth = 3
@@ -74,9 +75,7 @@ func (s *Scheduler) AddTask(t *task.Task) {
 }
 
 func (s *Scheduler) GetRows() []interface{} {
-	now := time.Now()
 	rows := make([]interface{}, 0, len(s.browsers))
-
 	for _, domain := range s.browsers {
 		ls := domain.list()
 		// 默认排序: state,time
@@ -88,14 +87,18 @@ func (s *Scheduler) GetRows() []interface{} {
 		})
 
 		for _, t := range ls {
-			rows = append(rows, &model.TaskRow{
+			row := &model.TaskRow{
 				ID:     t.ID,
 				Name:   t.Name,
 				Domain: domain.domain,
-				State:  task.StateStatus[t.State],
+				State:  t.GetState(),
 				URL:    t.Url.String(),
-				Age:    now.Sub(t.Time).Truncate(time.Second).String(),
-			})
+				Age:    t.EndTime.Sub(t.StartTime).Truncate(time.Millisecond * 100).String(),
+			}
+			if t.State == task.StateFail && len(t.ErrDetails) > 0 {
+				row.LastError = strconv.Itoa(t.ErrDetails[len(t.ErrDetails)-1].ErrCode)
+			}
+			rows = append(rows, row)
 		}
 	}
 	return rows

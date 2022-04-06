@@ -98,7 +98,7 @@ func (d *DomainBrowser) process(index int) {
 		return
 	}
 	logx.Infof("[scheduler] [process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
-	t.SetState(task.StateRunning)
+	t.RecordStart()
 	req, resp, err := d.scheduler.download.Get(t)
 	if err != nil {
 		logx.Errorf("[scheduler] [process-%d] Task[%x] request(GET) fail: %v", index, t.ID, err)
@@ -112,7 +112,7 @@ func (d *DomainBrowser) process(index int) {
 		t.RecordErr(err.ErrCode(), err.Error())
 		return
 	}
-	t.SetState(task.StateSuccess)
+	t.RecordSuccess()
 	logx.Infof("[scheduler] [process-%d] Task[%x] run success", index, t.ID)
 }
 
@@ -185,23 +185,22 @@ func (tq *TaskQueue) refresh() {
 	defer tq.Unlock()
 
 	for _, t := range tq.tasks {
-		if t.State == task.StateFail {
-			if len(t.ErrDetails) > 0 {
-				n := 0
-				for i := len(t.ErrDetails) - 1; i >= 0; i-- {
-					if t.ErrDetails[i].ErrCode == task.ErrHttpNotFount {
-						n++
-					} else {
-						break
-					}
+		if t.State == task.StateFail && len(t.ErrDetails) > 0 {
+			if len(t.ErrDetails) > 7 {
+				continue // 超过7次不再重试
+			}
+			n := 0
+			for i := len(t.ErrDetails) - 1; i >= 0; i-- {
+				if t.ErrDetails[i].ErrCode == task.ErrHttpNotFount {
+					n++
+				} else {
+					break
 				}
-				if n < 2 {
-					logx.Infof("[browser] Task[%x] can be retry, last err: %v", t.ID, t.ErrDetails[len(t.ErrDetails)-1])
-					t.SetState(task.StateInit)
-				}
-				continue
-			} else {
-				logx.Errorf("[debug] task.State == fail and task.ErrDetails is empty, info: %v", t)
+			}
+			if n < 2 {
+				// 连续的NotFound错误小于2次才重试
+				logx.Infof("[browser] Task[%x] can be retry, last err: %v", t.ID, t.ErrDetails[len(t.ErrDetails)-1])
+				t.SetState(task.StateInit)
 			}
 		}
 	}

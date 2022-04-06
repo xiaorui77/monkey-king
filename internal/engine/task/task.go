@@ -47,9 +47,9 @@ type Task struct {
 	// 优先级: [0, MAX_INT), 值越大优先级越高
 	Priority int `json:"priority"`
 
-	Time       time.Time   `json:"time"`
-	StartTime  time.Time   `json:"startTime"`
-	EndTime    time.Time   `json:"endTime"`
+	Time       time.Time   `json:"time"`      // 创建时间
+	StartTime  time.Time   `json:"startTime"` // 运行开始时间, 重试时会重置
+	EndTime    time.Time   `json:"endTime"`   // 运行结束时间(保护成功和失败), 重试时会重置
 	ErrDetails []ErrDetail `json:"err_details"`
 
 	// 主回调函数, 后续考虑优化合并
@@ -113,13 +113,23 @@ func (t *Task) GetState() string {
 	return "unknown"
 }
 
+func (t *Task) RecordStart() {
+	t.State = StateRunning
+	t.StartTime = time.Now()
+}
+
+func (t *Task) RecordSuccess() {
+	t.State = StateSuccess
+	t.EndTime = time.Now()
+}
+
 func (t *Task) RecordErr(code int, msg string) {
 	t.State = StateFail
-	now := time.Now()
+	t.EndTime = time.Now()
 	t.ErrDetails = append(t.ErrDetails, ErrDetail{
 		Start:   t.StartTime,
-		End:     time.Now(),
-		Cost:    now.Sub(t.StartTime),
+		End:     t.EndTime,
+		Cost:    t.EndTime.Sub(t.StartTime),
 		ErrCode: code,
 		ErrMsg:  msg,
 	})

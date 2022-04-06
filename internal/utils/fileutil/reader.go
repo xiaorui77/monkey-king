@@ -20,17 +20,16 @@ func (r *VisualReader) ReadAll() ([]byte, error) {
 			// Add more capacity (let append pick how much).
 			b = append(b, 0)[:len(b)]
 		}
-		n, err := r.Read(b[len(b):cap(b)])
+		n, err := r.Reader.Read(b[len(b):cap(b)])
 		r.Cur = int64(len(b) + n)
-		if r.Cur > r.Total {
-			r.Total += 512
-		}
 		b = b[:len(b)+n]
 		if err != nil {
 			if err == io.EOF {
 				err = nil
 			}
-			r.Total = int64(len(b))
+			if r.Total < r.Cur {
+				r.Total = r.Cur
+			}
 			return b, err
 		}
 	}
