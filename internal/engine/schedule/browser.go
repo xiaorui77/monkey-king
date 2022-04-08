@@ -14,81 +14,77 @@ import (
 // 1. 处理同一个Domain下的优先级关系
 // 2. 管理cookie等
 type Browser struct {
-	scheduler *Scheduler
-	domain    string
-	normal    *TaskQueue
+	scheduler  *Scheduler
+	domain     string
+	processNum int
+
+	mu            sync.Mutex
+	wg            sync.WaitGroup
+	processCancel []context.CancelFunc
 
 	// 最大层级, 包括下一页等
 	MaxDepth int
+	normal   *TaskQueue
 }
 
 func NewBrowser(s *Scheduler, host string) *Browser {
 	return &Browser{
-		scheduler: s,
-		domain:    host,
-		normal:    NewTaskQueue(),
+		scheduler:     s,
+		domain:        host,
+		processCancel: make([]context.CancelFunc, 0),
 
+		normal:   NewTaskQueue(),
 		MaxDepth: MaxDepth,
 	}
 }
 
-func (b *Browser) push(task *task.Task) {
-	if task == nil || task.Depth > b.MaxDepth {
-		return
-	}
-	b.normal.push(task)
-}
-
-func (b *Browser) delete(name string) *task.Task {
-	return b.normal.delete(name)
-}
-
-func (b *Browser) query(name string) *task.Task {
-	return b.normal.query(name)
-}
-
-// todo
-func (b *Browser) next() *task.Task {
-	return b.normal.next()
-}
-
-func (b *Browser) refresh() {
-	b.normal.refresh()
-}
-
-func (b *Browser) list() []*task.Task {
-	res := make([]*task.Task, 0, len(b.normal.list()))
-	res = append(res, b.normal.list()...)
-	return res
-}
-
 // schedule all tasks by multi-thread.
-func (b *Browser) begin(ctx context.Context) {
-	logx.Infof("[scheduler] The Browser[%s] begin, process num: %d", b.domain, Parallelism)
-	var wg sync.WaitGroup
-	for i := 0; i < Parallelism; i++ {
-		index := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			logx.Infof("[scheduler] Browser[%s] Process[%d] start process", b.domain, index)
-			for {
-				select {
-				case <-ctx.Done():
-					logx.Infof("[scheduler] Browser[%s] Process[%d] will stop", b.domain, index)
-					return
-				default:
-					b.process(ctx, index)
-				}
-				time.Sleep(time.Second * TaskInterval)
-			}
-		}()
-	}
+func (b *Browser) boot(ctx context.Context) {
+	logx.Infof("[scheduler] The Browser[%s] boot, processNum: %d", b.domain, Parallelism)
+	b.setProcess(ctx, Parallelism)
 
-	wg.Wait()
+	// 等待运行结束
+	b.wg.Wait()
 	logx.Infof("[scheduler] The Browser[%s] will close", b.domain)
 	b.close()
 	logx.Infof("[scheduler] The Browser[%s] has been closed", b.domain)
+}
+
+func (b *Browser) setProcess(ctx context.Context, num int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	logx.Infof("[scheduler] Browser[%s] set processNum: %d to %d", b.domain, b.processNum, num)
+	if b.processNum < num {
+		for index := b.processNum; index < num; index++ {
+			cancelledCtx, cancel := context.WithCancel(ctx)
+			b.processCancel = append(b.processCancel, cancel)
+			b.wg.Add(1)
+			go func(index int) {
+				defer b.wg.Done()
+				b.running(cancelledCtx, index)
+			}(index)
+		}
+	} else if b.processNum > num {
+		// 调用cancel函数结束running
+		for index := b.processNum - 1; index >= num; index-- {
+			b.processCancel[index]()
+		}
+	}
+	b.processNum = num
+}
+
+func (b *Browser) running(ctx context.Context, index int) {
+	logx.Infof("[scheduler] Browser[%s] Process[%d] start running", b.domain, index)
+	for {
+		select {
+		case <-ctx.Done():
+			logx.Infof("[scheduler] Browser[%s] Process[%d] has been stopped", b.domain, index)
+			return
+		default:
+			b.process(ctx, index)
+		}
+		time.Sleep(time.Second * TaskInterval)
+	}
 }
 
 func (b *Browser) process(ctx context.Context, index int) {
@@ -96,10 +92,9 @@ func (b *Browser) process(ctx context.Context, index int) {
 	if t == nil {
 		logx.Debugf("[process-%d] no found tasks", index)
 		b.refresh()
-		time.Sleep(time.Second * 3)
 		return
 	}
-	logx.Infof("[process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
+	logx.Infof("[process-%d] Task[%x] start run, request url: %s", index, t.ID, t.Url)
 	t.RecordStart()
 
 	// 设置超时并使用GET进行请求
@@ -147,6 +142,35 @@ func (b *Browser) close() {
 	delete(b.scheduler.browsers, b.domain)
 	b.normal = nil
 	b.scheduler = nil
+}
+
+func (b *Browser) push(task *task.Task) {
+	if task == nil || task.Depth > b.MaxDepth {
+		return
+	}
+	b.normal.push(task)
+}
+
+func (b *Browser) delete(name string) *task.Task {
+	return b.normal.delete(name)
+}
+
+func (b *Browser) query(name string) *task.Task {
+	return b.normal.query(name)
+}
+
+func (b *Browser) next() *task.Task {
+	return b.normal.next()
+}
+
+func (b *Browser) refresh() {
+	b.normal.refresh()
+}
+
+func (b *Browser) list() []*task.Task {
+	res := make([]*task.Task, 0, len(b.normal.list()))
+	res = append(res, b.normal.list()...)
+	return res
 }
 
 func (b *Browser) MarshalJSON() ([]byte, error) {

@@ -66,7 +66,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 			t.SetState(task.StateInit)
 			if _, ok := s.browsers[t.Domain]; !ok {
 				s.browsers[t.Domain] = NewBrowser(s, t.Domain)
-				go s.browsers[t.Domain].begin(ctx)
+				go s.browsers[t.Domain].boot(ctx)
 			}
 			s.browsers[t.Domain].push(t)
 		}
