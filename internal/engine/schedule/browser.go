@@ -5,6 +5,7 @@ import (
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/timeutils"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
 	"sync"
 	"time"
 )
@@ -69,12 +70,12 @@ func (b *Browser) begin(ctx context.Context) {
 		index := i
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			logx.Infof("[scheduler] Browser[%s] Process[%d] start process", b.domain, index)
 			for {
 				select {
 				case <-ctx.Done():
 					logx.Infof("[scheduler] Browser[%s] Process[%d] will stop", b.domain, index)
-					wg.Done()
 					return
 				default:
 					b.process(ctx, index)
@@ -121,13 +122,22 @@ func (b *Browser) process(ctx context.Context, index int) {
 	logx.Infof("[process-%d] Task[%x] run success", index, t.ID)
 }
 
-// todo: 补充完善
-func (b *Browser) timeout(t *task.Task) time.Duration {
-	l := len(t.ErrDetails)
-	if l == 0 {
+func (b *Browser) timeout(t *task.Task) (tt time.Duration) {
+	defer func() {
+		// defer + func() {} 的形式是可以将返回值传进来的, 如果是defer直接+t.SetMeta(), 则tt=0
+		t.SetMeta("timeout", tt)
+	}()
+	if len(t.ErrDetails) == 0 {
 		return DefaultTimeout
 	}
-	return timeutils.Min(DefaultTimeout+time.Second*15*time.Duration(l), MaxTimeout)
+	// 基于上次reader的情况计算超时时间
+	lastTimeout, ltOk := t.Meta["timeout"].(time.Duration)
+	reader, rOk := t.Meta["reader"].(*fileutil.VisualReader)
+	if ltOk && rOk && lastTimeout > 0 && reader.Cur > 0 && reader.Total > 0 {
+		dur := lastTimeout * time.Duration(reader.Total) / time.Duration(reader.Cur)
+		return timeutils.Min(dur, MaxTimeout)
+	}
+	return timeutils.Min(DefaultTimeout+time.Second*45*time.Duration(len(t.ErrDetails)), MaxTimeout)
 }
 
 func (b *Browser) close() {

@@ -57,11 +57,11 @@ type Task struct {
 	onResponseHandlers []OnResponse
 }
 
-func NewTask(name string, parent *Task, u *url.URL, meta map[string]interface{}, fun callback) *Task {
+func NewTask(name string, parent *Task, u *url.URL, fun callback) *Task {
 	t := &Task{
 		ID:       rand.Uint64(),
 		Name:     name,
-		Meta:     meta,
+		Meta:     make(map[string]interface{}, 5),
 		Url:      u,
 		State:    StateUnknown,
 		Time:     time.Now(),
@@ -108,6 +108,13 @@ func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) error2.E
 
 func (t *Task) SetState(state int) {
 	t.State = state
+}
+
+func (t *Task) SetMeta(key string, value interface{}) *Task {
+	if key != "" && value != nil {
+		t.Meta[key] = value
+	}
+	return t
 }
 
 func (t *Task) GetState() string {
@@ -160,6 +167,6 @@ const (
 	ErrNewRequest   = 512
 	ErrDoRequest    = 512 + 4
 	ErrCallback     = 1024
-	ErrHttpUnknown  = 10000
+	ErrHttpUnknown  = 10000 // 包装http错误码
 	ErrHttpNotFount = 10404 // 404页面
 )

@@ -35,8 +35,8 @@ func (r *VisualReader) ReadAll() ([]byte, error) {
 	}
 }
 
-func (r *VisualReader) Read(p []byte) (n int, err error) {
-	n, err = r.Reader.Read(p)
+func (r *VisualReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
 	r.Cur += int64(n)
-	return
+	return n, err
 }
