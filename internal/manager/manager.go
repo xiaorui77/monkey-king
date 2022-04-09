@@ -4,20 +4,20 @@ import (
 	"context"
 	"github.com/xiaorui77/goutils/httpr"
 	"github.com/xiaorui77/goutils/logx"
-	"github.com/xiaorui77/monker-king/internal/engine/types"
+	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
 	"net/http"
 	"time"
 )
 
 type Manager struct {
-	collector types.Collect
+	collector interfaces.Collect
 
 	server  *http.Server
 	router  *httpr.Httpr
 	runChan chan struct{}
 }
 
-func NewManager(c types.Collect) *Manager {
+func NewManager(c interfaces.Collect) *Manager {
 	m := &Manager{
 		collector: c,
 		router:    httpr.NewEngine(),

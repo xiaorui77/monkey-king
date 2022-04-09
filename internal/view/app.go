@@ -5,14 +5,14 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/xiaorui77/goutils/logx"
-	"github.com/xiaorui77/monker-king/internal/engine/types"
+	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
 	"io"
 	"os"
 )
 
 type AppUI struct {
 	// app core layer
-	collector types.Collect
+	collector interfaces.Collect
 
 	app  *tview.Application
 	main *tview.Flex
@@ -24,7 +24,7 @@ type AppUI struct {
 	actions map[tcell.Key]*KeyAction
 }
 
-func NewUI(collector types.Collect) *AppUI {
+func NewUI(collector interfaces.Collect) *AppUI {
 	return &AppUI{
 		collector: collector,
 		app:       tview.NewApplication(),
@@ -41,7 +41,7 @@ func (ui *AppUI) Init() {
 	ui.indicator.SetText("Hello Monkey King")
 	ui.indicator.SetBackgroundColor(tcell.ColorDefault)
 
-	ui.input = NewInputWrap(ui, ui.collector.Visit)
+	ui.input = NewInputWrap(ui, ui.collector)
 	ui.input.Init()
 	ui.content = NewPageStack(ui)
 	ui.content.Init()

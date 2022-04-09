@@ -2,20 +2,15 @@ package task
 
 import (
 	"fmt"
+	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"github.com/xiaorui77/monker-king/internal/utils/domain"
-	error2 "github.com/xiaorui77/monker-king/pkg/error"
 	"math/rand"
-	"net/http"
 	"net/url"
 	"time"
 )
 
-// 请求完成后回调
-type callback func(task *Task, req *http.Request, resp *http.Response) error
-
-type OnResponse func(req *http.Request, resp *http.Response)
-
-type OnResponseError func(resp *http.Response, err error)
+// MainCallback 主回调函数, 仅200且无错误执行
+type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
 const (
 	StateUnknown = iota
@@ -53,11 +48,10 @@ type Task struct {
 	ErrDetails []ErrDetail `json:"err_details"`
 
 	// 主回调函数, 后续考虑优化合并
-	callback           callback
-	onResponseHandlers []OnResponse
+	Callback MainCallback `json:"-"`
 }
 
-func NewTask(name string, parent *Task, u *url.URL, fun callback) *Task {
+func NewTask(name string, parent *Task, u *url.URL, fun MainCallback) *Task {
 	t := &Task{
 		ID:       rand.Uint64(),
 		Name:     name,
@@ -65,7 +59,7 @@ func NewTask(name string, parent *Task, u *url.URL, fun callback) *Task {
 		Url:      u,
 		State:    StateUnknown,
 		Time:     time.Now(),
-		callback: fun,
+		Callback: fun,
 	}
 	if parent != nil {
 		t.Domain = parent.Domain
@@ -86,24 +80,6 @@ func (t *Task) SetPriority(p int) *Task {
 func (t *Task) ResetDepth() *Task {
 	t.Depth = 0
 	return t
-}
-
-func (t *Task) HandleOnResponse(req *http.Request, resp *http.Response) error2.Error {
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	for _, handler := range t.onResponseHandlers {
-		handler(req, resp)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return &error2.Err{Code: ErrHttpUnknown + resp.StatusCode, Err: fmt.Errorf("response code is not ok[%v]", resp.StatusCode)}
-	}
-	if err := t.callback(t, req, resp); err != nil {
-		return &error2.Err{Err: err, Code: ErrCallback}
-	}
-	return nil
 }
 
 func (t *Task) SetState(state int) {
@@ -166,7 +142,9 @@ const (
 	ErrUnknown      = iota
 	ErrNewRequest   = 512
 	ErrDoRequest    = 512 + 4
-	ErrCallback     = 1024
+	ErrReadResponse = 1024
+	ErrCallback     = 1024 + 16
+	ErrCallbackTask = 1024 + 16 + 4
 	ErrHttpUnknown  = 10000 // 包装http错误码
 	ErrHttpNotFount = 10404 // 404页面
 )

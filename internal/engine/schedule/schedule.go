@@ -6,6 +6,7 @@ import (
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/engine/download"
+	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/storage"
 	"github.com/xiaorui77/monker-king/pkg/model"
@@ -32,7 +33,7 @@ const (
 )
 
 type Scheduler struct {
-	ctx      context.Context
+	parsing  interfaces.Parsing
 	download *download.Downloader
 	store    storage.Store
 
@@ -41,8 +42,10 @@ type Scheduler struct {
 	browsers map[string]*Browser
 }
 
-func NewRunner(store storage.Store) *Scheduler {
+func NewRunner(parsing interfaces.Parsing, store storage.Store) *Scheduler {
 	return &Scheduler{
+		parsing:   parsing,
+		download:  download.NewDownloader(),
 		taskQueue: make(chan *task.Task, taskQueueSize),
 		browsers:  map[string]*Browser{},
 		store:     store,
@@ -51,9 +54,6 @@ func NewRunner(store storage.Store) *Scheduler {
 
 // Run in Blocking mode
 func (s *Scheduler) Run(ctx context.Context) {
-	s.ctx = ctx
-	s.download = download.NewDownloader(ctx)
-
 	for {
 		select {
 		case <-ctx.Done():

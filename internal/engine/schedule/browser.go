@@ -40,14 +40,14 @@ func NewBrowser(s *Scheduler, host string) *Browser {
 
 // schedule all tasks by multi-thread.
 func (b *Browser) boot(ctx context.Context) {
-	logx.Infof("[scheduler] The Browser[%s] boot, processNum: %d", b.domain, Parallelism)
+	logx.Debugf("[scheduler] The Browser[%s] boot, processNum: %d", b.domain, Parallelism)
 	b.setProcess(ctx, Parallelism)
 
 	// 等待运行结束
 	b.wg.Wait()
-	logx.Infof("[scheduler] The Browser[%s] will close", b.domain)
+	logx.Infof("[scheduler] Browser[%s] will close", b.domain)
 	b.close()
-	logx.Infof("[scheduler] The Browser[%s] has been closed", b.domain)
+	logx.Infof("[scheduler] Browser[%s] has been stopped", b.domain)
 }
 
 func (b *Browser) setProcess(ctx context.Context, num int) {
@@ -100,19 +100,25 @@ func (b *Browser) process(ctx context.Context, index int) {
 	// 设置超时并使用GET进行请求
 	tCtx, cancelFunc := context.WithTimeout(ctx, b.timeout(t))
 	defer cancelFunc()
-	req, resp, err := b.scheduler.download.Get(tCtx, t)
+	resp, err := b.scheduler.download.Get(tCtx, t)
 	if err != nil {
-		logx.Errorf("[process-%d] Task[%x] request(GET) fail: %v", index, t.ID, err)
+		logx.Errorf("[process-%d] Task[%x] run fail, request(GET) fail: %v", index, t.ID, err)
 		t.RecordErr(err.ErrCode(), err.Error())
 		return
 	}
 
-	logx.Infof("[scheduler] [process-%d] Task[%x] request.Do finish, will handle OnResponse", index, t.ID)
-	if err := t.HandleOnResponse(req, resp); err != nil {
-		logx.Errorf("[process-%d] Task[%x] handle OnResponse failed: %v", index, t.ID, err)
+	logx.Infof("[scheduler] [process-%d] Task[%x] request.Do finish, will handle Callbacks", index, t.ID)
+	if err := b.scheduler.parsing.HandleOnResponse(resp); err != nil {
+		logx.Errorf("[process-%d] Task[%x] run fail, handle ResponseCallback failed: %v", index, t.ID, err)
 		t.RecordErr(err.ErrCode(), err.Error())
 		return
 	}
+	if err := t.Callback(t, resp); err != nil {
+		logx.Errorf("[process-%d] Task[%x] handle task.Callback failed: %v", index, t.ID, err)
+		t.RecordErr(task.ErrCallbackTask, err.Error())
+		return
+	}
+
 	t.RecordSuccess()
 	logx.Infof("[process-%d] Task[%x] run success", index, t.ID)
 }

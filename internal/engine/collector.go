@@ -8,13 +8,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/monker-king/internal/config"
+	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"github.com/xiaorui77/monker-king/internal/storage"
 	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
 	"github.com/xiaorui77/monker-king/internal/view/model"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"sync"
 )
@@ -29,8 +29,10 @@ type Collector struct {
 
 	// 抓取成功后回调
 	register sync.Mutex
-	// 获取到页面后的回调, 为了保证顺序, 所以采用list
-	htmlCallbacks []HtmlCallbackContainer
+
+	// HTML 回调
+	htmlCallbacks    []HtmlCallbackContainer
+	ResponseCallback []ResponseCallback
 }
 
 func NewCollector(config *config.Config) (*Collector, error) {
@@ -44,25 +46,24 @@ func NewCollector(config *config.Config) (*Collector, error) {
 		}
 	}
 
-	scheduler := schedule.NewRunner(store)
 	c := &Collector{
-		config:    config,
-		store:     store,
-		scheduler: scheduler,
+		config: config,
+		store:  store,
 
 		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
 	}
+	c.scheduler = schedule.NewRunner(c, store)
 	return c, nil
 }
 
 func (c *Collector) Run(ctx context.Context) {
-	logx.Infof("[collector] Already running...")
+	logx.Infof("[collector] The Collector already running...")
 	c.scheduler.Run(ctx)
-	logx.Infof("[collector] has been stopped")
+	logx.Infof("[collector] The Collector has been stopped")
 }
 
-func (c *Collector) Scheduler() *schedule.Scheduler {
+func (c *Collector) TaskManager() interfaces.TaskManage {
 	return c.scheduler
 }
 
@@ -103,7 +104,7 @@ func (c *Collector) visit(parent *task.Task, u *url.URL) error {
 		return err
 	}
 
-	c.AddTask(task.NewTask("", parent, u, c.scrape))
+	c.AddTask(task.NewTask("", parent, u, c.parsing))
 	return nil
 }
 
@@ -116,55 +117,25 @@ func (c *Collector) AddTask(t *task.Task) {
 }
 
 // 回调函数: 处理抓取到的页面
-// todo: 对页面分类
-func (c *Collector) scrape(task *task.Task, req *http.Request, resp *http.Response) error {
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		logx.Debugf("[collector] scrape read body failed: %v", err)
-		return fmt.Errorf("scrape read body failed")
-	}
-
-	response := &Response{
-		StatusCode: resp.StatusCode,
-		Body:       body,
-		Request: &Request{
-			collector: c,
-			baseURL:   req.URL, // todo: 该怎么设置
-			URL:       req.URL,
-		},
-	}
-
-	// 通过task下载get到页面后通过回调执行
-	logx.Debugf("[collector] Task[%x] scrape done, begin handleOnHtml()", task.ID)
-	c.handleOnHtml(task, response)
-	c.recordVisit(req.URL.String())
-	logx.Infof("[collector] Task[%x] scrape and handle done.", task.ID)
+func (c *Collector) parsing(task *task.Task, resp *types.ResponseWarp) error {
+	logx.Debugf("[collector] Task[%016x] parsing response", task.ID)
+	c.handleOnHtml(task, resp)
+	c.recordVisit(resp.Request.URL.String())
+	logx.Infof("[collector] Task[%016x] parsing and handle done.", task.ID)
 	return nil
 }
 
 // 回调函数: 保存文件
-func (c *Collector) save(t *task.Task, _ *http.Request, resp *http.Response) error {
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+func (c *Collector) save(t *task.Task, resp *types.ResponseWarp) error {
 	name := t.Meta["save_name"].(string)
 	path := t.Meta["save_path"].(string)
 
-	reader := &fileutil.VisualReader{
-		Reader: resp.Body,
-		Total:  resp.ContentLength,
-	}
-	bs, err := reader.ReadAll()
-	if err != nil {
-		t.SetMeta("reader", reader)
-		return fmt.Errorf("reading resp.Body when[%v/%v] failed: %v", reader.Cur, reader.Total, err)
-	}
 	logx.Infof("[collector] Task[%x] save file \"%s\" to: %s", t.ID, name, path)
-	return fileutil.SaveImage(bs, path, name)
+	return fileutil.SaveImage(resp.Body, path, name)
 }
 
 // 借些页面, 处理回调
-func (c *Collector) handleOnHtml(task *task.Task, resp *Response) {
+func (c *Collector) handleOnHtml(task *task.Task, resp *types.ResponseWarp) {
 	doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(resp.Body))
 	if err != nil {
 		logx.Debugf("parse html to document failed: %v", err)
@@ -174,7 +145,7 @@ func (c *Collector) handleOnHtml(task *task.Task, resp *Response) {
 		index := 1
 		doc.Find(callback.Selector).Each(func(_ int, selection *goquery.Selection) {
 			for _, node := range selection.Nodes {
-				e := NewHTMLElement(task, resp, doc, selection, node, index)
+				e := NewHTMLElement(task, c, resp, doc, selection, node, index)
 				index++
 				callback.fun(task, e)
 			}

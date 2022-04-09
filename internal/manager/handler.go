@@ -22,7 +22,7 @@ func (m *Manager) HandleDeleteTask(c *httpr.Context) {
 		return
 	}
 
-	if t := m.collector.Scheduler().DeleteTask("", data.Id); t != nil {
+	if t := m.collector.TaskManager().DeleteTask("", data.Id); t != nil {
 		c.ResultMessage(fmt.Sprintf("delete task success: %v", data.Url), nil)
 	} else {
 		c.ResultError(fmt.Errorf("not found"))

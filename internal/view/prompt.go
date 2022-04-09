@@ -3,6 +3,7 @@ package view
 import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
 	"strings"
 )
 
@@ -16,16 +17,17 @@ type InputWrap struct {
 	*tview.InputField
 	app *AppUI
 
-	active   bool
-	mode     int
-	callback func(string) error
+	active bool
+	mode   int
+
+	collector interfaces.Collect
 }
 
-func NewInputWrap(app *AppUI, callback func(string) error) *InputWrap {
+func NewInputWrap(app *AppUI, collector interfaces.Collect) *InputWrap {
 	return &InputWrap{
 		InputField: tview.NewInputField(),
 		app:        app,
-		callback:   callback,
+		collector:  collector,
 	}
 }
 
