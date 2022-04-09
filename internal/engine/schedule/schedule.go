@@ -100,7 +100,7 @@ func (s *Scheduler) GetRows() []interface{} {
 				State:  t.GetState(),
 				URL:    t.Url.String(),
 			}
-			if t.State == task.StateFail && len(t.ErrDetails) > 0 {
+			if t.State == task.StateFailed && len(t.ErrDetails) > 0 {
 				row.LastError = strconv.Itoa(t.ErrDetails[len(t.ErrDetails)-1].ErrCode)
 			}
 			if !t.StartTime.IsZero() {
@@ -127,12 +127,12 @@ func (s *Scheduler) GetTask(domain, task string) *task.Task {
 	return nil
 }
 
-func (s *Scheduler) DeleteTask(domain, task string) *task.Task {
+func (s *Scheduler) DeleteTask(domain string, id uint64) *task.Task {
 	if b, ok := s.browsers[domain]; ok {
-		return b.delete(task)
+		return b.delete(id)
 	}
 	for _, b := range s.browsers {
-		if t := b.delete(task); t != nil {
+		if t := b.delete(id); t != nil {
 			return t
 		}
 	}

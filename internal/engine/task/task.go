@@ -14,18 +14,21 @@ type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
 const (
 	StateUnknown = iota
+	StateScheduling
 	StateRunning
 	StateInit
-	StateFail
-	StateSuccess
+	StateFailed
+	StateSuccessful
+	StateSuccessfulAll
 )
 
 var StateStatus = map[int]string{
-	0: "unknown",
-	1: "running",
-	2: "init",
-	3: "Fail",
-	4: "Success",
+	0: "Unknown",
+	1: "Running",
+	2: "Init",
+	3: "Failed",
+	4: "Successful",
+	5: "SuccessfulAll",
 }
 
 type Task struct {
@@ -106,12 +109,12 @@ func (t *Task) RecordStart() {
 }
 
 func (t *Task) RecordSuccess() {
-	t.State = StateSuccess
+	t.State = StateSuccessful
 	t.EndTime = time.Now()
 }
 
 func (t *Task) RecordErr(code int, msg string) {
-	t.State = StateFail
+	t.State = StateFailed
 	t.EndTime = time.Now()
 	t.ErrDetails = append(t.ErrDetails, ErrDetail{
 		Start:   t.StartTime,
@@ -142,7 +145,7 @@ const (
 	ErrUnknown      = iota
 	ErrNewRequest   = 512
 	ErrDoRequest    = 512 + 4
-	ErrReadResponse = 1024
+	ErrReadRespBody = 1024
 	ErrCallback     = 1024 + 16
 	ErrCallbackTask = 1024 + 16 + 4
 	ErrHttpUnknown  = 10000 // 包装http错误码

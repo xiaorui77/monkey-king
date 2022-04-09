@@ -24,7 +24,8 @@ type Browser struct {
 
 	// 最大层级, 包括下一页等
 	MaxDepth int
-	normal   *TaskQueue
+	normal   *task.Queue
+	tree     *task.Tree
 }
 
 func NewBrowser(s *Scheduler, host string) *Browser {
@@ -33,7 +34,8 @@ func NewBrowser(s *Scheduler, host string) *Browser {
 		domain:        host,
 		processCancel: make([]context.CancelFunc, 0),
 
-		normal:   NewTaskQueue(),
+		normal:   task.NewTaskQueue(),
+		tree:     task.NewTree(),
 		MaxDepth: MaxDepth,
 	}
 }
@@ -94,7 +96,7 @@ func (b *Browser) process(ctx context.Context, index int) {
 		b.refresh()
 		return
 	}
-	logx.Infof("[process-%d] Task[%x] start run, request url: %s", index, t.ID, t.Url)
+	logx.Infof("[process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
 	t.RecordStart()
 
 	// 设置超时并使用GET进行请求
@@ -154,138 +156,30 @@ func (b *Browser) push(task *task.Task) {
 	if task == nil || task.Depth > b.MaxDepth {
 		return
 	}
-	b.normal.push(task)
+	//b.normal.Push(task)
+	b.tree.Push(task)
 }
 
-func (b *Browser) delete(name string) *task.Task {
-	return b.normal.delete(name)
+func (b *Browser) delete(id uint64) *task.Task {
+	// return b.normal.Delete(t.Name)
+	return b.tree.Delete(id)
 }
 
 func (b *Browser) query(name string) *task.Task {
-	return b.normal.query(name)
+	//b.normal.Query(name)
+	return b.tree.Query(name)
 }
 
 func (b *Browser) next() *task.Task {
-	return b.normal.next()
+	//b.normal.Next()
+	return b.tree.Next()
 }
 
 func (b *Browser) refresh() {
-	b.normal.refresh()
+	//b.normal.Refresh()
+	b.tree.Refresh()
 }
 
 func (b *Browser) list() []*task.Task {
-	res := make([]*task.Task, 0, len(b.normal.list()))
-	res = append(res, b.normal.list()...)
-	return res
-}
-
-func (b *Browser) MarshalJSON() ([]byte, error) {
-	return nil, nil
-}
-
-// TaskQueue 任务队列
-type TaskQueue struct {
-	sync.RWMutex
-
-	tasks  []*task.Task
-	offset int
-}
-
-func NewTaskQueue() *TaskQueue {
-	return &TaskQueue{
-		tasks: []*task.Task{},
-	}
-}
-
-func (tq *TaskQueue) push(t *task.Task) {
-	tq.Lock()
-	defer tq.Unlock()
-
-	for j := len(tq.tasks) - 1; j >= 0; j-- {
-		if t.Priority <= tq.tasks[j].Priority {
-			tq.tasks = append(tq.tasks, nil)
-			copy(tq.tasks[j+2:], tq.tasks[j+1:])
-			tq.tasks[j+1] = t
-
-			if j+1 < tq.offset {
-				tq.offset = j + 1
-			}
-			return
-		}
-	}
-	// 插入前部
-	tq.tasks = append([]*task.Task{t}, tq.tasks...)
-	tq.offset = 0
-}
-
-func (tq *TaskQueue) next() *task.Task {
-	tq.Lock()
-	defer tq.Unlock()
-
-	for i := 0; i < len(tq.tasks); i++ {
-		j := (tq.offset + i) % len(tq.tasks)
-		if tq.tasks[j].State == task.StateInit {
-			tq.offset = j + 1
-			tq.tasks[j].SetState(task.StateUnknown)
-			return tq.tasks[j]
-		}
-	}
-	return nil
-}
-
-// 分析fail状态的task, 转为init
-func (tq *TaskQueue) refresh() {
-	tq.Lock()
-	defer tq.Unlock()
-
-	for _, t := range tq.tasks {
-		if t.State == task.StateFail && len(t.ErrDetails) > 0 {
-			if len(t.ErrDetails) > 7 {
-				continue // 超过7次不再重试
-			}
-			n := 0
-			for i := len(t.ErrDetails) - 1; i >= 0; i-- {
-				if t.ErrDetails[i].ErrCode == task.ErrHttpNotFount {
-					n++
-				} else {
-					break
-				}
-			}
-			if n < 2 {
-				// 连续的NotFound错误小于2次才重试
-				logx.Infof("[browser] Task[%x] can be retry, last err: %v", t.ID, t.ErrDetails[len(t.ErrDetails)-1])
-				t.SetState(task.StateInit)
-			}
-		}
-	}
-	tq.offset = 0
-}
-
-func (tq *TaskQueue) query(name string) *task.Task {
-	for _, t := range tq.tasks {
-		if t.Name == name {
-			return t
-		}
-	}
-	return nil
-}
-
-func (tq *TaskQueue) delete(name string) *task.Task {
-	tq.Lock()
-	defer tq.Unlock()
-
-	for i, t := range tq.tasks {
-		if t.Name == name {
-			tq.tasks = append(tq.tasks[:i], tq.tasks[i+1:]...)
-			if i <= tq.offset {
-				tq.offset--
-			}
-			return t
-		}
-	}
-	return nil
-}
-
-func (tq *TaskQueue) list() []*task.Task {
-	return tq.tasks
+	return b.tree.List()
 }

@@ -1,7 +1,7 @@
 package manager
 
 type TaskRequest struct {
-	Id  string `json:"id"`
+	Id  uint64 `json:"id"`
 	Url string `json:"url"`
 }
 

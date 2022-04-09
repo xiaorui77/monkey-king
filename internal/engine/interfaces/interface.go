@@ -15,7 +15,7 @@ type Collect interface {
 }
 
 type TaskManage interface {
-	DeleteTask(domain, name string) *task.Task
+	DeleteTask(domain string, id uint64) *task.Task
 }
 
 type Parsing interface {

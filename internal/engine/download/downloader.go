@@ -84,7 +84,7 @@ func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp
 	body, err := reader.ReadAll()
 	if err != nil {
 		t.SetMeta("reader", reader) // convention：如果有错误，则记录reader
-		return nil, &error.Err{Code: task.ErrReadResponse,
+		return nil, &error.Err{Code: task.ErrReadRespBody,
 			Err: fmt.Errorf("reading resp.Body when[%v/%v] failed: %v", reader.Cur, reader.Total, err),
 		}
 	}
