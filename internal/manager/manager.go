@@ -24,7 +24,7 @@ func NewManager(c interfaces.Collect) *Manager {
 		runChan:   make(chan struct{}),
 	}
 	m.server = &http.Server{
-		Addr:         ":8080",
+		Addr:         ":8060",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 		IdleTimeout:  15 * time.Second,
@@ -35,6 +35,7 @@ func NewManager(c interfaces.Collect) *Manager {
 	m.router.POST("/api/v1/task", m.HandleAddTask)
 	m.router.DELETE("/api/v1/task", m.HandleDeleteTask)
 	m.router.GET("/api/v1/tasks", m.HandleListTask)
+	m.router.GET("/api/v1/browser/:domain/tree", m.HandleBrowserTree)
 
 	return m
 }

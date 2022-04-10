@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/xiaorui77/goutils/fileutils"
 	"github.com/xiaorui77/goutils/logx/hooks"
 	"github.com/xiaorui77/goutils/math"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
@@ -40,6 +41,7 @@ func main() {
 	// 每个单元下所有元素
 	collector.OnHTMLAny(girlRe, func(t *task.Task, e *engine.HTMLElement) {
 		name := e.GetText("body > div:nth-child(6) > div > h1", "girl-"+string(rand.Int31n(1000)))
+		name = fileutils.WindowsName(name)
 		file := fmt.Sprintf("%v-%03d", name, e.Index)
 		path := fmt.Sprintf("%v/%v", basePath, name)
 		_ = collector.Download(t, file, path, e.Attr[0].Val)

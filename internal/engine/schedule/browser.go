@@ -23,20 +23,20 @@ type Browser struct {
 	processCancel []context.CancelFunc
 
 	// 最大层级, 包括下一页等
-	MaxDepth int
-	normal   *task.Queue
-	tree     *task.Tree
+	MaxDepth  int
+	taskQueue *task.Queue
+	taskTree  *task.Tree
 }
 
-func NewBrowser(s *Scheduler, host string) *Browser {
+func NewBrowser(s *Scheduler, domain string) *Browser {
 	return &Browser{
 		scheduler:     s,
-		domain:        host,
+		domain:        domain,
 		processCancel: make([]context.CancelFunc, 0),
 
-		normal:   task.NewTaskQueue(),
-		tree:     task.NewTree(),
-		MaxDepth: MaxDepth,
+		taskQueue: task.NewTaskQueue(),
+		taskTree:  task.NewTree(domain),
+		MaxDepth:  MaxDepth,
 	}
 }
 
@@ -148,7 +148,7 @@ func (b *Browser) close() {
 
 	// 自我清理
 	delete(b.scheduler.browsers, b.domain)
-	b.normal = nil
+	b.taskQueue = nil
 	b.scheduler = nil
 }
 
@@ -156,30 +156,34 @@ func (b *Browser) push(task *task.Task) {
 	if task == nil || task.Depth > b.MaxDepth {
 		return
 	}
-	//b.normal.Push(task)
-	b.tree.Push(task)
+	//b.taskQueue.Push(task)
+	b.taskTree.Push(task)
 }
 
 func (b *Browser) delete(id uint64) *task.Task {
-	// return b.normal.Delete(t.Name)
-	return b.tree.Delete(id)
+	// return b.taskQueue.Delete(t.Name)
+	return b.taskTree.Delete(id)
 }
 
 func (b *Browser) query(name string) *task.Task {
-	//b.normal.Query(name)
-	return b.tree.Query(name)
+	//b.taskQueue.Query(name)
+	return b.taskTree.Query(name)
 }
 
 func (b *Browser) next() *task.Task {
-	//b.normal.Next()
-	return b.tree.Next()
+	//b.taskQueue.Next()
+	return b.taskTree.Next()
 }
 
 func (b *Browser) refresh() {
-	//b.normal.Refresh()
-	b.tree.Refresh()
+	//b.taskQueue.Refresh()
+	b.taskTree.Refresh()
 }
 
 func (b *Browser) list() []*task.Task {
-	return b.tree.List()
+	return b.taskTree.List()
+}
+
+func (b *Browser) tree() *task.Tree {
+	return b.taskTree.GetTree()
 }

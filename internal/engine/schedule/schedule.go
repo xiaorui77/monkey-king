@@ -138,3 +138,10 @@ func (s *Scheduler) DeleteTask(domain string, id uint64) *task.Task {
 	}
 	return nil
 }
+
+func (s *Scheduler) GetTree(domain string) *task.Tree {
+	if b, ok := s.browsers[domain]; ok {
+		return b.tree()
+	}
+	return nil
+}

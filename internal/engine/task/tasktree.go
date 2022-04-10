@@ -1,6 +1,7 @@
 package task
 
 import (
+	"encoding/json"
 	"github.com/xiaorui77/goutils/logx"
 	"sync"
 )
@@ -33,6 +34,16 @@ func (n *Node) next() *Node {
 		return n.Children.next()
 	}
 	return nil
+}
+
+func (n *Node) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Id       uint64 `json:"id"`
+		ParentId uint64 `json:"pid"`
+		Name     string `json:"name"`
+		Status   string `json:"status"`
+		Children *List  `json:"children"`
+	}{Id: n.Task.ID, ParentId: n.Task.ParentId, Name: n.Task.Name, Status: n.Task.GetState(), Children: n.Children})
 }
 
 type List struct {
@@ -93,14 +104,23 @@ func (l *List) delete(node *Node) {
 	}
 }
 
+func (l *List) MarshalJSON() ([]byte, error) {
+	if l != nil {
+		return json.Marshal(l.nodes)
+	}
+	return json.Marshal([]struct{}{})
+}
+
 type Tree struct {
+	Domain  string
 	root    *List
 	queue   []*Node // 无须保存, 方便查询
 	queueMu sync.RWMutex
 }
 
-func NewTree() *Tree {
+func NewTree(domain string) *Tree {
 	return &Tree{
+		Domain: domain,
 		root: &List{
 			nodes: make([]*Node, 0, 10),
 		},
@@ -186,6 +206,18 @@ func (tree *Tree) find(id uint64) (*Node, int) {
 	return nil, -1
 }
 
+func (tree *Tree) MarshalJSON() ([]byte, error) {
+	if tree.root != nil {
+		res := struct {
+			Id       uint64 `json:"id"`
+			Name     string `json:"name"`
+			Children *List  `json:"children"`
+		}{Id: 0, Name: tree.Domain, Children: tree.root}
+		return json.Marshal(res)
+	}
+	return json.Marshal(nil)
+}
+
 func (tree *Tree) Find(id uint64) *Task {
 	tree.queueMu.RLock()
 	defer tree.queueMu.RUnlock()
@@ -231,4 +263,8 @@ func (tree *Tree) List() []*Task {
 		res = append(res, tree.queue[i].Task)
 	}
 	return res
+}
+
+func (tree *Tree) GetTree() *Tree {
+	return tree
 }

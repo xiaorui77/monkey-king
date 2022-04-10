@@ -2,6 +2,7 @@ package fileutil
 
 import (
 	"fmt"
+	"github.com/xiaorui77/goutils/fileutils"
 	"github.com/xiaorui77/goutils/logx"
 	"io/ioutil"
 	"net/http"
@@ -10,10 +11,12 @@ import (
 
 // SaveImage 保存图片数据到指定位置
 func SaveImage(bytes []byte, path, name string) error {
+	name = fileutils.WindowsName(name)
+
 	if _, err := os.Stat(path); err != nil {
 		logx.Debugf("create path: %v", path)
 		if err := os.MkdirAll(path, 0711); err != nil {
-			return fmt.Errorf("create path %v failed", path)
+			return fmt.Errorf("create path %v failed: %v", path, err)
 		}
 	}
 

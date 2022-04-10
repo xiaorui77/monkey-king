@@ -29,6 +29,14 @@ func (m *Manager) HandleDeleteTask(c *httpr.Context) {
 	}
 }
 
+func (m *Manager) HandleBrowserTree(c *httpr.Context) {
+	domain, ok := c.Params["domain"]
+	if !ok {
+		return
+	}
+	c.ResultData(m.collector.TaskManager().GetTree(domain), nil)
+}
+
 func (m *Manager) HandleListTask(c *httpr.Context) {
 	c.ResultData(m.collector.GetDataProducer().GetRows(), nil)
 }
