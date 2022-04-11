@@ -48,7 +48,7 @@ func (tq *Queue) Next() *Task {
 		j := (tq.offset + i) % len(tq.tasks)
 		if tq.tasks[j].State == StateInit {
 			tq.offset = j + 1
-			tq.tasks[j].SetState(StateUnknown)
+			tq.tasks[j].SetState(StateScheduling)
 			return tq.tasks[j]
 		}
 	}

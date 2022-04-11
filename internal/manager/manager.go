@@ -4,20 +4,20 @@ import (
 	"context"
 	"github.com/xiaorui77/goutils/httpr"
 	"github.com/xiaorui77/goutils/logx"
-	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
+	"github.com/xiaorui77/monker-king/internal/engine/api"
 	"net/http"
 	"time"
 )
 
 type Manager struct {
-	collector interfaces.Collect
+	collector api.Collect
 
 	server  *http.Server
 	router  *httpr.Httpr
 	runChan chan struct{}
 }
 
-func NewManager(c interfaces.Collect) *Manager {
+func NewManager(c api.Collect) *Manager {
 	m := &Manager{
 		collector: c,
 		router:    httpr.NewEngine(),
@@ -35,6 +35,7 @@ func NewManager(c interfaces.Collect) *Manager {
 	m.router.POST("/api/v1/task", m.HandleAddTask)
 	m.router.DELETE("/api/v1/task", m.HandleDeleteTask)
 	m.router.GET("/api/v1/tasks", m.HandleListTask)
+	m.router.GET("/api/v1/browsers", m.HandleBrowserTree)
 	m.router.GET("/api/v1/browser/:domain/tree", m.HandleBrowserTree)
 
 	return m

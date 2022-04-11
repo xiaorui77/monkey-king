@@ -1,4 +1,4 @@
-package engine
+package collector
 
 import (
 	"bytes"
@@ -8,8 +8,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/monker-king/internal/config"
-	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/api"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"github.com/xiaorui77/monker-king/internal/storage"
@@ -63,7 +63,7 @@ func (c *Collector) Run(ctx context.Context) {
 	logx.Infof("[collector] The Collector has been stopped")
 }
 
-func (c *Collector) TaskManager() interfaces.TaskManage {
+func (c *Collector) TaskManager() api.TaskManage {
 	return c.scheduler
 }
 

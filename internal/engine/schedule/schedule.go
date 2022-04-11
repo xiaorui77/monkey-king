@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/wait"
+	"github.com/xiaorui77/monker-king/internal/engine/api"
 	"github.com/xiaorui77/monker-king/internal/engine/download"
-	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/storage"
 	"github.com/xiaorui77/monker-king/pkg/model"
@@ -33,7 +33,7 @@ const (
 )
 
 type Scheduler struct {
-	parsing  interfaces.Parsing
+	parsing  api.Parsing
 	download *download.Downloader
 	store    storage.Store
 
@@ -42,7 +42,7 @@ type Scheduler struct {
 	browsers map[string]*Browser
 }
 
-func NewRunner(parsing interfaces.Parsing, store storage.Store) *Scheduler {
+func NewRunner(parsing api.Parsing, store storage.Store) *Scheduler {
 	return &Scheduler{
 		parsing:   parsing,
 		download:  download.NewDownloader(),
@@ -139,7 +139,7 @@ func (s *Scheduler) DeleteTask(domain string, id uint64) *task.Task {
 	return nil
 }
 
-func (s *Scheduler) GetTree(domain string) *task.Tree {
+func (s *Scheduler) GetTree(domain string) interface{} {
 	if b, ok := s.browsers[domain]; ok {
 		return b.tree()
 	}

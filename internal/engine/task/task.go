@@ -13,13 +13,14 @@ import (
 type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
 const (
-	StateUnknown = iota
-	StateScheduling
-	StateRunning
-	StateInit
-	StateFailed
-	StateSuccessful
-	StateSuccessfulAll
+	// Deprecated: StateUnknown
+	StateUnknown       = iota // 创建时默认值
+	StateScheduling           // 已经被调度
+	StateRunning              // 已经开始运行
+	StateInit                 // 添加之前
+	StateFailed               // 运行失败
+	StateSuccessful           // 运行成功
+	StateSuccessfulAll        // 自己+所有子孙节点均运行成功
 )
 
 var StateStatus = map[int]string{
@@ -48,19 +49,20 @@ type Task struct {
 	Time       time.Time   `json:"time"`      // 创建时间
 	StartTime  time.Time   `json:"startTime"` // 运行开始时间, 重试时会重置
 	EndTime    time.Time   `json:"endTime"`   // 运行结束时间(保护成功和失败), 重试时会重置
-	ErrDetails []ErrDetail `json:"err_details"`
+	ErrDetails []ErrDetail `json:"errDetails"`
+
+	children *TaskList
 
 	// 主回调函数, 后续考虑优化合并
 	Callback MainCallback `json:"-"`
 }
 
-func NewTask(name string, parent *Task, u *url.URL, fun MainCallback) *Task {
+func NewTask(name string, parent *Task, url *url.URL, fun MainCallback) *Task {
 	t := &Task{
 		ID:       rand.Uint64(),
 		Name:     name,
 		Meta:     make(map[string]interface{}, 5),
-		Url:      u,
-		State:    StateUnknown,
+		Url:      url,
 		Time:     time.Now(),
 		Callback: fun,
 	}
@@ -70,7 +72,7 @@ func NewTask(name string, parent *Task, u *url.URL, fun MainCallback) *Task {
 		t.Parent = parent
 		t.Depth = parent.Depth + 1
 	} else {
-		t.Domain = domain.CalDomain(u)
+		t.Domain = domain.CalDomain(url)
 	}
 	return t
 }
@@ -87,6 +89,12 @@ func (t *Task) ResetDepth() *Task {
 
 func (t *Task) SetState(state int) {
 	t.State = state
+	switch t.State {
+	case StateSuccessful:
+		if t.children != nil && t.children.isSuccessfulAll() {
+			t.State = StateSuccessfulAll
+		}
+	}
 }
 
 func (t *Task) SetMeta(key string, value interface{}) *Task {
@@ -129,6 +137,56 @@ func (t *Task) String() string {
 	return fmt.Sprintf("[%x]%s: %s", t.ID, t.Name, t.Url.String())
 }
 
+func (t *Task) IsSuccessful() bool {
+	if t.State == StateSuccessfulAll || (t.children == nil && t.State == StateSuccessful) {
+		return true
+	}
+	return false
+}
+
+func (t *Task) refreshStatus() {
+	if t.children == nil {
+		return
+	}
+
+	if t.children.isSuccessfulAll() {
+		t.State = StateSuccessfulAll
+	}
+}
+
+// Push 添加子任务
+// can be called by schedule.Browser
+func (t *Task) Push(n *Task) {
+	if t.State == StateSuccessfulAll {
+		t.State = StateSuccessful
+	}
+	if t.children == nil {
+		t.children = newTaskList()
+	}
+	t.children.Push(n)
+}
+
+// 获取下一个子任务
+func (t *Task) next() *Task {
+	if t.State == StateSuccessful && t.children != nil {
+		return t.children.Next()
+	}
+	return nil
+}
+
+func (t *Task) ListAll() []*Task {
+	res := make([]*Task, 0, len(t.children.list))
+	res = append(res, t)
+
+	for i := 0; i < len(res); i++ {
+		task := res[i]
+		if task.children != nil {
+			res = append(res, task.children.list...)
+		}
+	}
+	return res
+}
+
 type ErrDetail struct {
 	Start   time.Time
 	End     time.Time
@@ -142,6 +200,7 @@ func (e *ErrDetail) String() string {
 }
 
 const (
+	// Deprecated: ErrUnknown
 	ErrUnknown      = iota
 	ErrNewRequest   = 512
 	ErrDoRequest    = 512 + 4

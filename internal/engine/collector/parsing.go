@@ -1,4 +1,4 @@
-package engine
+package collector
 
 import (
 	"github.com/PuerkitoBio/goquery"

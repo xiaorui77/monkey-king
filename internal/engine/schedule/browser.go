@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/timeutils"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
@@ -26,6 +27,9 @@ type Browser struct {
 	MaxDepth  int
 	taskQueue *task.Queue
 	taskTree  *task.Tree
+
+	// 新存储结构
+	tasks *task.TaskList
 }
 
 func NewBrowser(s *Scheduler, domain string) *Browser {
@@ -93,7 +97,7 @@ func (b *Browser) process(ctx context.Context, index int) {
 	t := b.next()
 	if t == nil {
 		logx.Debugf("[process-%d] no found tasks", index)
-		b.refresh()
+		b.retryFailed()
 		return
 	}
 	logx.Infof("[process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
@@ -152,38 +156,52 @@ func (b *Browser) close() {
 	b.scheduler = nil
 }
 
-func (b *Browser) push(task *task.Task) {
-	if task == nil || task.Depth > b.MaxDepth {
-		return
-	}
-	//b.taskQueue.Push(task)
-	b.taskTree.Push(task)
+func (b *Browser) next() *task.Task {
+	return b.tasks.Next()
 }
 
+func (b *Browser) push(t *task.Task) {
+	if t == nil || t.Depth > b.MaxDepth {
+		return
+	}
+	if t.Parent != nil {
+		t.Parent.Push(t)
+	} else {
+		b.tasks.Push(t)
+	}
+}
+
+// todo: 需要替换
 func (b *Browser) delete(id uint64) *task.Task {
 	// return b.taskQueue.Delete(t.Name)
 	return b.taskTree.Delete(id)
 }
 
+// todo: 需要替换
 func (b *Browser) query(name string) *task.Task {
 	//b.taskQueue.Query(name)
 	return b.taskTree.Query(name)
 }
 
-func (b *Browser) next() *task.Task {
-	//b.taskQueue.Next()
-	return b.taskTree.Next()
-}
-
-func (b *Browser) refresh() {
+// todo: 需要替换
+func (b *Browser) retryFailed() {
 	//b.taskQueue.Refresh()
 	b.taskTree.Refresh()
 }
 
 func (b *Browser) list() []*task.Task {
-	return b.taskTree.List()
+	return b.tasks.ListAll()
 }
 
-func (b *Browser) tree() *task.Tree {
-	return b.taskTree.GetTree()
+func (b *Browser) tree() *Browser {
+	return b
+}
+
+func (b *Browser) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Id         uint64       `json:"id"`
+		Name       string       `json:"name"`
+		ProcessNum int          `json:"processNum"`
+		Children   []*task.Task `json:"children"`
+	}{Id: 0, Name: b.domain, ProcessNum: b.processNum})
 }

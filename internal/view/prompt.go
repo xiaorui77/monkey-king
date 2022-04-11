@@ -3,7 +3,7 @@ package view
 import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/xiaorui77/monker-king/internal/engine/interfaces"
+	"github.com/xiaorui77/monker-king/internal/engine/api"
 	"strings"
 )
 
@@ -20,10 +20,10 @@ type InputWrap struct {
 	active bool
 	mode   int
 
-	collector interfaces.Collect
+	collector api.Collect
 }
 
-func NewInputWrap(app *AppUI, collector interfaces.Collect) *InputWrap {
+func NewInputWrap(app *AppUI, collector api.Collect) *InputWrap {
 	return &InputWrap{
 		InputField: tview.NewInputField(),
 		app:        app,

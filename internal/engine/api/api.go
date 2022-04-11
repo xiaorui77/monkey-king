@@ -1,6 +1,7 @@
-package interfaces
+package api
 
 import (
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/api"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"github.com/xiaorui77/monker-king/internal/view/model"
@@ -10,13 +11,8 @@ import (
 type Collect interface {
 	Visit(parent *task.Task, url string) error
 
-	TaskManager() TaskManage
+	TaskManager() api.TaskManage
 	GetDataProducer() model.DataProducer
-}
-
-type TaskManage interface {
-	DeleteTask(domain string, id uint64) *task.Task
-	GetTree(domain string) *task.Tree
 }
 
 type Parsing interface {

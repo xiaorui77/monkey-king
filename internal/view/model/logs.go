@@ -20,7 +20,7 @@ func (l *LogsBuffer) GetLogChan() LogChan {
 	return make(LogChan)
 }
 
-// Write implement io Writer interfaces
+// Write implement io Writer api
 func (l *LogsBuffer) Write(p []byte) (int, error) {
 	l.LogChan <- &LogItem{Bytes: p}
 	return len(p), nil

@@ -171,7 +171,7 @@ func (tree *Tree) Refresh() {
 			}
 			if n < 2 {
 				// 连续的NotFound错误小于2次才重试
-				logx.Infof("[browser] Task[%x] can be retry, last err: %s", t.ID, t.ErrDetails[len(t.ErrDetails)-1])
+				logx.Infof("[browser] Task[%x] can be retry, last err: %s", t.ID, t.ErrDetails[len(t.ErrDetails)-1].String())
 				t.SetState(StateInit)
 				if node.Parent != nil {
 					node.Parent.Children.offset = 0

@@ -5,6 +5,7 @@ import (
 	"github.com/xiaorui77/goutils/fileutils"
 	"github.com/xiaorui77/goutils/logx/hooks"
 	"github.com/xiaorui77/goutils/math"
+	"github.com/xiaorui77/monker-king/internal/engine/collector"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/manager"
 	"math/rand"
@@ -12,7 +13,6 @@ import (
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/config"
-	"github.com/xiaorui77/monker-king/internal/engine"
 )
 
 var (
@@ -32,28 +32,28 @@ func main() {
 		logx.WithHook(hooks.NewEsHook("http://192.168.17.1:9200")))
 
 	conf := config.InitConfig()
-	collector, err := engine.NewCollector(conf)
+	engine, err := collector.NewCollector(conf)
 	if err != nil {
 		logx.Fatalf("[engine] create collector failed: %v", err)
 		return
 	}
 
 	// 每个单元下所有元素
-	collector.OnHTMLAny(girlRe, func(t *task.Task, e *engine.HTMLElement) {
+	engine.OnHTMLAny(girlRe, func(t *task.Task, e *collector.HTMLElement) {
 		name := e.GetText("body > div:nth-child(6) > div > h1", "girl-"+string(rand.Int31n(1000)))
 		name = fileutils.WindowsName(name)
 		file := fmt.Sprintf("%v-%03d", name, e.Index)
 		path := fmt.Sprintf("%v/%v", basePath, name)
-		_ = collector.Download(t, file, path, e.Attr[0].Val)
+		_ = engine.Download(t, file, path, e.Attr[0].Val)
 	})
 
 	// 每页内所有单元
-	collector.OnHTMLAny(pageRe, func(t *task.Task, ele *engine.HTMLElement) {
+	engine.OnHTMLAny(pageRe, func(t *task.Task, ele *collector.HTMLElement) {
 		_ = ele.Visit(ele.Attr[0].Val)
 	})
 
 	// 下个页
-	collector.OnHTMLAny(pagingRe, func(t *task.Task, ele *engine.HTMLElement) {
+	engine.OnHTMLAny(pagingRe, func(t *task.Task, ele *collector.HTMLElement) {
 		_ = ele.Visit(ele.Attr[0].Val)
 	})
 
@@ -64,8 +64,8 @@ func main() {
 	// go ui.Run(stopCtx)
 
 	// manager
-	go manager.NewManager(collector).Run(stopCtx)
+	go manager.NewManager(engine).Run(stopCtx)
 
-	collector.Run(stopCtx)
+	engine.Run(stopCtx)
 	logx.Infof("main has been exit")
 }
