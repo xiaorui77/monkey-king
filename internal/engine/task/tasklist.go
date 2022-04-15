@@ -1,13 +1,16 @@
 package task
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/xiaorui77/goutils/logx"
+)
 
 type TaskList struct {
 	list   []*Task
 	offset int
 }
 
-func newTaskList() *TaskList {
+func NewTaskList() *TaskList {
 	return &TaskList{list: make([]*Task, 0, 10)}
 }
 
@@ -32,18 +35,49 @@ func (l *TaskList) Push(t *Task) {
 func (l *TaskList) Next() *Task {
 	for i := 0; i < len(l.list); i++ {
 		j := (l.offset + i) % len(l.list)
+		// 深度优先
 		if l.list[j].State == StateInit {
 			l.offset = j + 1
 			l.list[j].SetState(StateScheduling)
 			return l.list[j]
-		}
-	}
-	for i := 0; i < len(l.list); i++ {
-		if n := l.list[i].next(); n != nil {
-			return n
+		} else if l.list[j].State == StateSuccessful {
+			if n := l.list[i].nextSub(); n != nil {
+				return n
+			}
 		}
 	}
 	return nil
+}
+
+func (l *TaskList) RetryFailed() {
+	for _, t := range l.list {
+		if t.State != StateFailed || len(t.ErrDetails) == 0 {
+			// 非错误或者错误无详情时调过分析
+			continue
+		}
+		if len(t.ErrDetails) > 7 {
+			logx.Warnf("[browser] Task[%x] failure more than 7 times, will no longer try again", t.ID)
+			continue // 超过7次不再重试
+		}
+		n := 0
+		for i := len(t.ErrDetails) - 1; i >= 0; i-- {
+			if t.ErrDetails[i].ErrCode == ErrHttpNotFount {
+				n++
+			} else {
+				break
+			}
+		}
+		if n < 2 {
+			// 连续的NotFound错误小于2次才重试
+			logx.Infof("[browser] Task[%x] can be retry, last err: %s", t.ID, t.ErrDetails[len(t.ErrDetails)-1].String())
+			t.SetState(StateInit)
+			if t.Parent != nil {
+				t.Parent.children.offset = 0
+			}
+
+		}
+
+	}
 }
 
 func (l *TaskList) isSuccessfulAll() bool {

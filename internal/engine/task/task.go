@@ -13,7 +13,7 @@ import (
 type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
 const (
-	// Deprecated: StateUnknown
+	// StateUnknown 0值
 	StateUnknown       = iota // 创建时默认值
 	StateScheduling           // 已经被调度
 	StateRunning              // 已经开始运行
@@ -25,11 +25,12 @@ const (
 
 var StateStatus = map[int]string{
 	0: "Unknown",
-	1: "Running",
-	2: "Init",
-	3: "Failed",
-	4: "Successful",
-	5: "SuccessfulAll",
+	1: "Scheduling",
+	2: "Running",
+	3: "Init",
+	4: "Failed",
+	5: "Successful",
+	6: "SuccessfulAll",
 }
 
 type Task struct {
@@ -59,7 +60,7 @@ type Task struct {
 
 func NewTask(name string, parent *Task, url *url.URL, fun MainCallback) *Task {
 	t := &Task{
-		ID:       rand.Uint64(),
+		ID:       uint64(rand.Uint32()),
 		Name:     name,
 		Meta:     make(map[string]interface{}, 5),
 		Url:      url,
@@ -161,13 +162,13 @@ func (t *Task) Push(n *Task) {
 		t.State = StateSuccessful
 	}
 	if t.children == nil {
-		t.children = newTaskList()
+		t.children = NewTaskList()
 	}
 	t.children.Push(n)
 }
 
 // 获取下一个子任务
-func (t *Task) next() *Task {
+func (t *Task) nextSub() *Task {
 	if t.State == StateSuccessful && t.children != nil {
 		return t.children.Next()
 	}
@@ -200,7 +201,7 @@ func (e *ErrDetail) String() string {
 }
 
 const (
-	// Deprecated: ErrUnknown
+	// ErrUnknown 0值
 	ErrUnknown      = iota
 	ErrNewRequest   = 512
 	ErrDoRequest    = 512 + 4

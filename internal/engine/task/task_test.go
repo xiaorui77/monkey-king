@@ -27,3 +27,39 @@ func TestListAll(t *testing.T) {
 	t.Logf("%v", root.ListAll())
 	t.Logf("%v", root.children.ListAll())
 }
+
+func TestNext(t *testing.T) {
+	u, _ := url.Parse("https://example.com")
+	a := NewTask("a", nil, u, nil)
+	a.SetState(StateInit)
+	b := NewTask("b", nil, u, nil)
+	b.SetState(StateInit)
+
+	a1 := NewTask("a1", a, u, nil)
+	a1.SetState(StateInit)
+	a.Push(a1)
+	a2 := NewTask("a2", a, u, nil)
+	a2.SetState(StateInit)
+	a.Push(a2)
+	a3 := NewTask("a3", a, u, nil)
+	a3.SetState(StateInit)
+	a.Push(a3)
+	b1 := NewTask("b1", b, u, nil)
+	b1.SetState(StateInit)
+	b.Push(b1)
+	b2 := NewTask("b2", b, u, nil)
+	b2.SetState(StateInit)
+	b.Push(b2)
+
+	taskList := NewTaskList()
+	taskList.Push(a)
+	taskList.Push(b)
+
+	for i := 0; ; i++ {
+		ta := taskList.Next()
+		if ta == nil {
+			break
+		}
+		t.Logf("%dth: %v", i, ta)
+	}
+}

@@ -24,9 +24,8 @@ type Browser struct {
 	processCancel []context.CancelFunc
 
 	// 最大层级, 包括下一页等
-	MaxDepth  int
-	taskQueue *task.Queue
-	taskTree  *task.Tree
+	MaxDepth int
+	taskTree *task.Tree
 
 	// 新存储结构
 	tasks *task.TaskList
@@ -38,9 +37,8 @@ func NewBrowser(s *Scheduler, domain string) *Browser {
 		domain:        domain,
 		processCancel: make([]context.CancelFunc, 0),
 
-		taskQueue: task.NewTaskQueue(),
-		taskTree:  task.NewTree(domain),
-		MaxDepth:  MaxDepth,
+		tasks:    task.NewTaskList(),
+		MaxDepth: MaxDepth,
 	}
 }
 
@@ -67,6 +65,11 @@ func (b *Browser) setProcess(ctx context.Context, num int) {
 			b.wg.Add(1)
 			go func(index int) {
 				defer b.wg.Done()
+				defer func() {
+					if err := recover(); err != nil {
+						logx.Errorf("[scheduler] Browser[%s] process[%d] panic: %v", b.domain, index, err)
+					}
+				}()
 				b.running(cancelledCtx, index)
 			}(index)
 		}
@@ -152,7 +155,6 @@ func (b *Browser) close() {
 
 	// 自我清理
 	delete(b.scheduler.browsers, b.domain)
-	b.taskQueue = nil
 	b.scheduler = nil
 }
 
@@ -183,10 +185,11 @@ func (b *Browser) query(name string) *task.Task {
 	return b.taskTree.Query(name)
 }
 
-// todo: 需要替换
 func (b *Browser) retryFailed() {
-	//b.taskQueue.Refresh()
-	b.taskTree.Refresh()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.tasks.RetryFailed()
 }
 
 func (b *Browser) list() []*task.Task {
