@@ -9,6 +9,7 @@ import (
 	"github.com/xiaorui77/monker-king/internal/engine/download"
 	"github.com/xiaorui77/monker-king/internal/engine/task"
 	"github.com/xiaorui77/monker-king/internal/storage"
+	"github.com/xiaorui77/monker-king/internal/utils/domainutil"
 	"github.com/xiaorui77/monker-king/pkg/model"
 	"sort"
 	"strconv"
@@ -73,10 +74,20 @@ func (s *Scheduler) Run(ctx context.Context) {
 	}
 }
 
-func (s *Scheduler) AddTask(t *task.Task) {
-	if t != nil {
-		s.taskQueue <- t
+func (s *Scheduler) AddTask(t *task.Task) error {
+	if t == nil {
+		return fmt.Errorf("task can not nil")
 	}
+	if t.Domain == "" {
+		t.Domain = domainutil.CalDomain(t.Url)
+	}
+	if b, ok := s.browsers[t.Domain]; ok {
+		if t.Depth > b.MaxDepth {
+			return fmt.Errorf("browser[%s] max_depth is %d, but this task.depth is %d", t.Domain, b.MaxDepth, t.Depth)
+		}
+	}
+	s.taskQueue <- t
+	return nil
 }
 
 func (s *Scheduler) GetRows() []interface{} {

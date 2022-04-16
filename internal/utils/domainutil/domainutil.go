@@ -1,4 +1,4 @@
-package domain
+package domainutil
 
 import (
 	"net/url"

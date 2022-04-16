@@ -37,13 +37,14 @@ func (l *TaskList) Next() *Task {
 		j := (l.offset + i) % len(l.list)
 		// 深度优先
 		if l.list[j].State == StateInit {
-			l.offset = j + 1
 			l.list[j].SetState(StateScheduling)
 			return l.list[j]
 		} else if l.list[j].State == StateSuccessful {
 			if n := l.list[i].nextSub(); n != nil {
 				return n
 			}
+		} else if l.list[j].State == StateSuccessfulAll || l.list[j].State == StateFailed {
+			l.offset = j + 1
 		}
 	}
 	return nil
@@ -72,7 +73,7 @@ func (l *TaskList) RetryFailed() {
 			logx.Infof("[browser] Task[%x] can be retry, last err: %s", t.ID, t.ErrDetails[len(t.ErrDetails)-1].String())
 			t.SetState(StateInit)
 			if t.Parent != nil {
-				t.Parent.children.offset = 0
+				t.Parent.Children.offset = 0
 			}
 
 		}
@@ -98,8 +99,8 @@ func (l *TaskList) ListAll() []*Task {
 	res = append(res, l.list...)
 
 	for i := 0; i < len(res); i++ {
-		if res[i].children != nil {
-			res = append(res, res[i].children.list...)
+		if res[i].Children != nil {
+			res = append(res, res[i].Children.list...)
 		}
 	}
 	return res

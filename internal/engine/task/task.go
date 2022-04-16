@@ -1,9 +1,9 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
-	"github.com/xiaorui77/monker-king/internal/utils/domain"
 	"math/rand"
 	"net/url"
 	"time"
@@ -35,24 +35,24 @@ var StateStatus = map[int]string{
 
 type Task struct {
 	ID       uint64                 `json:"id"`
-	ParentId uint64                 `json:"parentId"`
+	ParentId uint64                 `json:"pid"`
 	Parent   *Task                  `json:"-"`
 	Depth    int                    `json:"depth"`
 	Name     string                 `json:"name"`
 	State    int                    `json:"state"`
-	Url      *url.URL               `json:"url"`
+	Url      *url.URL               `json:"-"`
 	Domain   string                 `json:"domain"`
 	Meta     map[string]interface{} `json:"meta"`
 
 	// 优先级: [0, MAX_INT), 值越大优先级越高
 	Priority int `json:"priority"`
 
-	Time       time.Time   `json:"time"`      // 创建时间
+	Time       time.Time   `json:"createTime"`      // 创建时间
 	StartTime  time.Time   `json:"startTime"` // 运行开始时间, 重试时会重置
 	EndTime    time.Time   `json:"endTime"`   // 运行结束时间(保护成功和失败), 重试时会重置
-	ErrDetails []ErrDetail `json:"errDetails"`
+	ErrDetails []ErrDetail `json:"errDetails,-"`
 
-	children *TaskList
+	Children *TaskList `json:"children"`
 
 	// 主回调函数, 后续考虑优化合并
 	Callback MainCallback `json:"-"`
@@ -72,8 +72,6 @@ func NewTask(name string, parent *Task, url *url.URL, fun MainCallback) *Task {
 		t.ParentId = parent.ID
 		t.Parent = parent
 		t.Depth = parent.Depth + 1
-	} else {
-		t.Domain = domain.CalDomain(url)
 	}
 	return t
 }
@@ -92,7 +90,7 @@ func (t *Task) SetState(state int) {
 	t.State = state
 	switch t.State {
 	case StateSuccessful:
-		if t.children != nil && t.children.isSuccessfulAll() {
+		if t.Children != nil && t.Children.isSuccessfulAll() {
 			t.State = StateSuccessfulAll
 		}
 	}
@@ -139,18 +137,18 @@ func (t *Task) String() string {
 }
 
 func (t *Task) IsSuccessful() bool {
-	if t.State == StateSuccessfulAll || (t.children == nil && t.State == StateSuccessful) {
+	if t.State == StateSuccessfulAll || (t.Children == nil && t.State == StateSuccessful) {
 		return true
 	}
 	return false
 }
 
 func (t *Task) refreshStatus() {
-	if t.children == nil {
+	if t.Children == nil {
 		return
 	}
 
-	if t.children.isSuccessfulAll() {
+	if t.Children.isSuccessfulAll() {
 		t.State = StateSuccessfulAll
 	}
 }
@@ -161,31 +159,40 @@ func (t *Task) Push(n *Task) {
 	if t.State == StateSuccessfulAll {
 		t.State = StateSuccessful
 	}
-	if t.children == nil {
-		t.children = NewTaskList()
+	if t.Children == nil {
+		t.Children = NewTaskList()
 	}
-	t.children.Push(n)
+	t.Children.Push(n)
 }
 
 // 获取下一个子任务
 func (t *Task) nextSub() *Task {
-	if t.State == StateSuccessful && t.children != nil {
-		return t.children.Next()
+	if t.State == StateSuccessful && t.Children != nil {
+		return t.Children.Next()
 	}
 	return nil
 }
 
 func (t *Task) ListAll() []*Task {
-	res := make([]*Task, 0, len(t.children.list))
+	res := make([]*Task, 0, len(t.Children.list))
 	res = append(res, t)
 
 	for i := 0; i < len(res); i++ {
 		task := res[i]
-		if task.children != nil {
-			res = append(res, task.children.list...)
+		if task.Children != nil {
+			res = append(res, task.Children.list...)
 		}
 	}
 	return res
+}
+
+func (t *Task) MarshalJSON() ([]byte, error) {
+	type Alias Task // 否则会导致内存溢出
+	return json.Marshal(&struct {
+		*Alias
+		Status string `json:"status"`
+		Url    string `json:"url"`
+	}{(*Alias)(t), t.GetState(), t.Url.String()})
 }
 
 type ErrDetail struct {

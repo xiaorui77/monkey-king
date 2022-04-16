@@ -159,6 +159,8 @@ func (b *Browser) close() {
 }
 
 func (b *Browser) next() *task.Task {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.tasks.Next()
 }
 
@@ -166,6 +168,8 @@ func (b *Browser) push(t *task.Task) {
 	if t == nil || t.Depth > b.MaxDepth {
 		return
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if t.Parent != nil {
 		t.Parent.Push(t)
 	} else {
@@ -202,9 +206,9 @@ func (b *Browser) tree() *Browser {
 
 func (b *Browser) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Id         uint64       `json:"id"`
-		Name       string       `json:"name"`
-		ProcessNum int          `json:"processNum"`
-		Children   []*task.Task `json:"children"`
-	}{Id: 0, Name: b.domain, ProcessNum: b.processNum})
+		Id         uint64         `json:"id"`
+		Name       string         `json:"name"`
+		ProcessNum int            `json:"processNum"`
+		Children   *task.TaskList `json:"children"`
+	}{Id: 0, Name: b.domain, ProcessNum: b.processNum, Children: b.tasks})
 }

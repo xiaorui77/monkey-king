@@ -25,7 +25,7 @@ func setup() {
 func TestListAll(t *testing.T) {
 	setup()
 	t.Logf("%v", root.ListAll())
-	t.Logf("%v", root.children.ListAll())
+	t.Logf("%v", root.Children.ListAll())
 }
 
 func TestNext(t *testing.T) {
