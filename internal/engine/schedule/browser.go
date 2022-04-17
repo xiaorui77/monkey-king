@@ -15,27 +15,24 @@ import (
 // 1. 处理同一个Domain下的优先级关系
 // 2. 管理cookie等
 type Browser struct {
-	scheduler  *Scheduler
+	scheduler *Scheduler
+
+	mu sync.Mutex
+	wg sync.WaitGroup
+
 	domain     string
 	processNum int
+	processes  []*process
 
-	mu            sync.Mutex
-	wg            sync.WaitGroup
-	processCancel []context.CancelFunc
-
-	// 最大层级, 包括下一页等
-	MaxDepth int
-	taskTree *task.Tree
-
-	// 新存储结构
-	tasks *task.TaskList
+	MaxDepth int            // 最大层级, 包括下一页等
+	tasks    *task.TaskList // 存储结构
 }
 
 func NewBrowser(s *Scheduler, domain string) *Browser {
 	return &Browser{
-		scheduler:     s,
-		domain:        domain,
-		processCancel: make([]context.CancelFunc, 0),
+		scheduler: s,
+		domain:    domain,
+		processes: make([]*process, 0, 5),
 
 		tasks:    task.NewTaskList(),
 		MaxDepth: MaxDepth,
@@ -47,11 +44,20 @@ func (b *Browser) boot(ctx context.Context) {
 	logx.Debugf("[scheduler] The Browser[%s] boot, processNum: %d", b.domain, Parallelism)
 	b.setProcess(ctx, Parallelism)
 
-	// 等待运行结束
-	b.wg.Wait()
-	logx.Infof("[scheduler] Browser[%s] will close", b.domain)
-	b.close()
-	logx.Infof("[scheduler] Browser[%s] has been stopped", b.domain)
+	for {
+		select {
+		case <-ctx.Done():
+			logx.Debugf("[scheduler] The Browser[%s] ctx.done, waiting all process stop", b.domain)
+			b.wg.Wait()
+			logx.Debugf("[scheduler] The Browser[%s] all process has been stopped", b.domain)
+			b.close()
+			logx.Infof("[scheduler] The Browser[%s] has been stopped", b.domain)
+			return
+		case <-time.Tick(time.Second * 10):
+			logx.Debugf("[scheduler] The Browser[%s] will run retryFailed", b.domain)
+			b.retryFailed()
+		}
+	}
 }
 
 func (b *Browser) setProcess(ctx context.Context, num int) {
@@ -61,63 +67,79 @@ func (b *Browser) setProcess(ctx context.Context, num int) {
 	if b.processNum < num {
 		for index := b.processNum; index < num; index++ {
 			cancelledCtx, cancel := context.WithCancel(ctx)
-			b.processCancel = append(b.processCancel, cancel)
+			p := &process{browser: b, index: index, cancelFn: cancel}
+			b.processes = append(b.processes, p)
 			b.wg.Add(1)
 			go func(index int) {
-				defer b.wg.Done()
 				defer func() {
-					if err := recover(); err != nil {
-						logx.Errorf("[scheduler] Browser[%s] process[%d] panic: %v", b.domain, index, err)
-					}
+					b.mu.Lock()
+					defer b.mu.Unlock()
+					b.wg.Done()
+					b.processNum--
 				}()
-				b.running(cancelledCtx, index)
+				p.run(cancelledCtx)
 			}(index)
 		}
 	} else if b.processNum > num {
 		// 调用cancel函数结束running
 		for index := b.processNum - 1; index >= num; index-- {
-			b.processCancel[index]()
+			b.processes[index].cancelFn()
 		}
 	}
 	b.processNum = num
 }
 
-func (b *Browser) running(ctx context.Context, index int) {
-	logx.Infof("[scheduler] Browser[%s] Process[%d] start running", b.domain, index)
+// 一个工作线程
+type process struct {
+	browser  *Browser
+	index    int                // 计数
+	cancelFn context.CancelFunc // 停止函数
+}
+
+func (p *process) run(ctx context.Context) {
+	defer func() {
+		defer p.cancelFn()
+		logx.Errorf("[scheduler] Browser[%s] process[%d] has panic", p.browser.domain, p.index)
+		if err := recover(); err != nil {
+			logx.Errorf("[scheduler] Browser[%s] process[%d] panic, recover failed: %v", p.browser.domain, p.index, err)
+		}
+	}()
+
+	logx.Infof("[scheduler] Browser[%s] Process[%d] has already started...", p.browser.domain, p.index)
 	for {
 		select {
 		case <-ctx.Done():
-			logx.Infof("[scheduler] Browser[%s] Process[%d] has been stopped", b.domain, index)
+			logx.Infof("[scheduler] Browser[%s] Process[%d] has been stopped", p.browser.domain, p.index)
 			return
 		default:
-			b.process(ctx, index)
+			p.process(ctx, p.index)
 		}
 		time.Sleep(time.Second * TaskInterval)
 	}
 }
 
-func (b *Browser) process(ctx context.Context, index int) {
-	t := b.next()
+// 工作过程
+func (p *process) process(ctx context.Context, index int) {
+	t := p.browser.next()
 	if t == nil {
 		logx.Debugf("[process-%d] no found tasks", index)
-		b.retryFailed()
 		return
 	}
 	logx.Infof("[process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
 	t.RecordStart()
 
 	// 设置超时并使用GET进行请求
-	tCtx, cancelFunc := context.WithTimeout(ctx, b.timeout(t))
+	tCtx, cancelFunc := context.WithTimeout(ctx, p.browser.timeout(t))
 	defer cancelFunc()
-	resp, err := b.scheduler.download.Get(tCtx, t)
+	resp, err := p.browser.scheduler.download.Get(tCtx, t)
 	if err != nil {
 		logx.Errorf("[process-%d] Task[%x] run fail, request(GET) fail: %v", index, t.ID, err)
 		t.RecordErr(err.ErrCode(), err.Error())
 		return
 	}
 
-	logx.Infof("[scheduler] [process-%d] Task[%x] request.Do finish, will handle Callbacks", index, t.ID)
-	if err := b.scheduler.parsing.HandleOnResponse(resp); err != nil {
+	logx.Infof("[process-%d] Task[%x] request finish, will handle Callbacks", index, t.ID)
+	if err := p.browser.scheduler.parsing.HandleOnResponse(resp); err != nil {
 		logx.Errorf("[process-%d] Task[%x] run fail, handle ResponseCallback failed: %v", index, t.ID, err)
 		t.RecordErr(err.ErrCode(), err.Error())
 		return
@@ -145,7 +167,7 @@ func (b *Browser) timeout(t *task.Task) (tt time.Duration) {
 	reader, rOk := t.Meta["reader"].(*fileutil.VisualReader)
 	if ltOk && rOk && lastTimeout > 0 && reader.Cur > 0 && reader.Total > 0 {
 		dur := lastTimeout * time.Duration(reader.Total) / time.Duration(reader.Cur)
-		return timeutils.Min(dur, MaxTimeout)
+		return timeutils.Min(DefaultTimeout+dur, MaxTimeout)
 	}
 	return timeutils.Min(DefaultTimeout+time.Second*45*time.Duration(len(t.ErrDetails)), MaxTimeout)
 }
@@ -180,13 +202,15 @@ func (b *Browser) push(t *task.Task) {
 // todo: 需要替换
 func (b *Browser) delete(id uint64) *task.Task {
 	// return b.taskQueue.Delete(t.Name)
-	return b.taskTree.Delete(id)
+	// return b.taskTree.Delete(id)
+	return nil
 }
 
 // todo: 需要替换
 func (b *Browser) query(name string) *task.Task {
 	//b.taskQueue.Query(name)
-	return b.taskTree.Query(name)
+	// return b.taskTree.Query(name)
+	return nil
 }
 
 func (b *Browser) retryFailed() {

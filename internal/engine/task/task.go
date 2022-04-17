@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
 // MainCallback 主回调函数, 仅200且无错误执行
 type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
@@ -47,10 +51,10 @@ type Task struct {
 	// 优先级: [0, MAX_INT), 值越大优先级越高
 	Priority int `json:"priority"`
 
-	Time       time.Time   `json:"createTime"`      // 创建时间
-	StartTime  time.Time   `json:"startTime"` // 运行开始时间, 重试时会重置
-	EndTime    time.Time   `json:"endTime"`   // 运行结束时间(保护成功和失败), 重试时会重置
-	ErrDetails []ErrDetail `json:"errDetails,-"`
+	Time       time.Time   `json:"createTime"`          // 创建时间
+	StartTime  time.Time   `json:"startTime,omitempty"` // 运行开始时间, 重试时会重置
+	EndTime    time.Time   `json:"endTime,omitempty"`   // 运行结束时间(保护成功和失败), 重试时会重置
+	ErrDetails []ErrDetail `json:"errDetails,omitempty"`
 
 	Children *TaskList `json:"children"`
 
@@ -86,16 +90,6 @@ func (t *Task) ResetDepth() *Task {
 	return t
 }
 
-func (t *Task) SetState(state int) {
-	t.State = state
-	switch t.State {
-	case StateSuccessful:
-		if t.Children != nil && t.Children.isSuccessfulAll() {
-			t.State = StateSuccessfulAll
-		}
-	}
-}
-
 func (t *Task) SetMeta(key string, value interface{}) *Task {
 	if key != "" && value != nil {
 		t.Meta[key] = value
@@ -110,18 +104,31 @@ func (t *Task) GetState() string {
 	return "unknown"
 }
 
+func (t *Task) SetState(state int) {
+	t.State = state
+	switch t.State {
+	case StateSuccessful:
+		p := t.Parent
+		if p != nil && p.Children != nil && p.Children.isSuccessfulAll() {
+			p.State = StateSuccessfulAll
+		}
+	case StateSuccessfulAll:
+		// 执行回调
+	}
+}
+
 func (t *Task) RecordStart() {
 	t.State = StateRunning
 	t.StartTime = time.Now()
 }
 
 func (t *Task) RecordSuccess() {
-	t.State = StateSuccessful
+	t.SetState(StateSuccessful)
 	t.EndTime = time.Now()
 }
 
 func (t *Task) RecordErr(code int, msg string) {
-	t.State = StateFailed
+	t.SetState(StateFailed)
 	t.EndTime = time.Now()
 	t.ErrDetails = append(t.ErrDetails, ErrDetail{
 		Start:   t.StartTime,

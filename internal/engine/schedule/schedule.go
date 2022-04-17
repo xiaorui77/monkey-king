@@ -59,7 +59,9 @@ func (s *Scheduler) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			// 等等所有browsers自行退出
+			logx.Infof("[scheduler] ctx.done waiting for all browsers to stop")
 			wait.WaitUntil(func() bool { return len(s.browsers) == 0 })
+			logx.Debugf("[scheduler] all browsers has been stopped")
 			s.close()
 			logx.Infof("[scheduler] The scheduler has been stopped")
 			return

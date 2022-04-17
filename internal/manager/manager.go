@@ -53,8 +53,10 @@ func (m *Manager) Run(ctx context.Context) {
 
 	select {
 	case <-ctx.Done():
-		logx.Info("HTTP Server shutdown...")
-		if err := m.server.Shutdown(ctx); err != nil {
+		logx.Info("HTTP Server will shutdown...")
+		stopCtx, cancelFunc := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancelFunc()
+		if err := m.server.Shutdown(stopCtx); err != nil {
 			logx.Errorf("HTTP Server shutdown error: %v", err)
 		} else {
 			logx.Info("HTTP Server shutdown success")
