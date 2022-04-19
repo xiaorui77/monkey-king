@@ -72,9 +72,9 @@ func NewTask(name string, parent *Task, url *url.URL, fun MainCallback) *Task {
 		Callback: fun,
 	}
 	if parent != nil {
-		t.Domain = parent.Domain
 		t.ParentId = parent.ID
 		t.Parent = parent
+		t.Domain = parent.Domain
 		t.Depth = parent.Depth + 1
 	}
 	return t

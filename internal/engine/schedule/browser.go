@@ -125,7 +125,7 @@ func (p *process) process(ctx context.Context, index int) {
 		logx.Debugf("[process-%d] no found tasks", index)
 		return
 	}
-	logx.Infof("[process-%d] Task[%x] begin run, request url: %s", index, t.ID, t.Url)
+	logx.Infof("[process-%d] Task[%x] begin run, url: %s", index, t.ID, t.Url)
 	t.RecordStart()
 
 	// 设置超时并使用GET进行请求

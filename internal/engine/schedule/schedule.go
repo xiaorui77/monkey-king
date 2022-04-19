@@ -29,7 +29,7 @@ const (
 	TaskInterval = 3
 
 	// DefaultTimeout is task 默认的超时时间
-	DefaultTimeout = time.Second * 60
+	DefaultTimeout = time.Second * 30
 	MaxTimeout     = download.MaxTimeout
 )
 

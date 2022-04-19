@@ -40,7 +40,7 @@ func (l *TaskList) Next() *Task {
 			l.list[j].SetState(StateScheduling)
 			return l.list[j]
 		} else if l.list[j].State == StateSuccessful {
-			if n := l.list[i].nextSub(); n != nil {
+			if n := l.list[j].nextSub(); n != nil {
 				return n
 			}
 		} else if l.list[j].State == StateSuccessfulAll || l.list[j].State == StateFailed {
