@@ -25,7 +25,7 @@ type Browser struct {
 	processes  []*process
 
 	MaxDepth int            // 最大层级, 包括下一页等
-	tasks    *task.TaskList // 存储结构
+	taskList *task.TaskList // 存储结构
 }
 
 func NewBrowser(s *Scheduler, domain string) *Browser {
@@ -34,7 +34,7 @@ func NewBrowser(s *Scheduler, domain string) *Browser {
 		domain:    domain,
 		processes: make([]*process, 0, 5),
 
-		tasks:    task.NewTaskList(),
+		taskList: task.NewTaskList(),
 		MaxDepth: MaxDepth,
 	}
 }
@@ -183,7 +183,7 @@ func (b *Browser) close() {
 func (b *Browser) next() *task.Task {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.tasks.Next()
+	return b.taskList.Next()
 }
 
 func (b *Browser) push(t *task.Task) {
@@ -195,7 +195,7 @@ func (b *Browser) push(t *task.Task) {
 	if t.Parent != nil {
 		t.Parent.Push(t)
 	} else {
-		b.tasks.Push(t)
+		b.taskList.Push(t)
 	}
 }
 
@@ -217,11 +217,11 @@ func (b *Browser) retryFailed() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.tasks.RetryFailed()
+	b.taskList.RetryFailed()
 }
 
 func (b *Browser) list() []*task.Task {
-	return b.tasks.ListAll()
+	return b.taskList.ListAll()
 }
 
 func (b *Browser) tree() *Browser {
@@ -234,5 +234,5 @@ func (b *Browser) MarshalJSON() ([]byte, error) {
 		Name       string         `json:"name"`
 		ProcessNum int            `json:"processNum"`
 		Children   *task.TaskList `json:"children"`
-	}{Id: 0, Name: b.domain, ProcessNum: b.processNum, Children: b.tasks})
+	}{Id: 0, Name: b.domain, ProcessNum: b.processNum, Children: b.taskList})
 }

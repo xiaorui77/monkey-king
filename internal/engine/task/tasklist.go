@@ -75,9 +75,13 @@ func (l *TaskList) RetryFailed() {
 			if t.Parent != nil {
 				t.Parent.Children.offset = 0
 			}
-
 		}
+	}
 
+	for _, t := range l.list {
+		if t.Children != nil {
+			t.Children.RetryFailed()
+		}
 	}
 }
 

@@ -104,24 +104,23 @@ func (c *Collector) visit(parent *task.Task, u *url.URL) error {
 		return err
 	}
 
-	c.AddTask(task.NewTask("", parent, u, c.parsing))
-	return nil
+	return c.AddTask(task.NewTask("", parent, u, c.parsing))
 }
 
-func (c *Collector) AddTask(t *task.Task) {
+func (c *Collector) AddTask(t *task.Task) error {
 	if t == nil {
-		return
+		return nil
 	}
 	logx.Debugf("[scrape] add parsed Task:%v", t.String())
-	c.scheduler.AddTask(t)
+	return c.scheduler.AddTask(t)
 }
 
 // 回调函数: 处理抓取到的页面
 func (c *Collector) parsing(task *task.Task, resp *types.ResponseWarp) error {
-	logx.Debugf("[collector] Task[%016x] parsing response", task.ID)
+	logx.Debugf("[collector] Task[%08x] parsing response", task.ID)
 	c.handleOnHtml(task, resp)
 	c.recordVisit(resp.Request.URL.String())
-	logx.Infof("[collector] Task[%016x] parsing and handle done.", task.ID)
+	logx.Infof("[collector] Task[%08x] parsing and handle done.", task.ID)
 	return nil
 }
 
