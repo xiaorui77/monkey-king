@@ -33,17 +33,19 @@ func (l *TaskList) Push(t *Task) {
 }
 
 func (l *TaskList) Next() *Task {
-	for i := 0; i < len(l.list); i++ {
-		j := (l.offset + i) % len(l.list)
-		// 深度优先
+	first := true
+	for i := l.offset; i < l.offset+len(l.list); i++ {
+		j := i % len(l.list)
 		if l.list[j].State == StateInit {
 			l.list[j].SetState(StateScheduling)
 			return l.list[j]
 		} else if l.list[j].State == StateSuccessful {
+			// 深度优先
 			if n := l.list[j].nextSub(); n != nil {
 				return n
 			}
-		} else if l.list[j].State == StateSuccessfulAll || l.list[j].State == StateFailed {
+		} else if first && (l.list[j].State == StateSuccessfulAll || l.list[j].State == StateFailed) { // 暂时跳过failed还是等待failed
+			first = false
 			l.offset = j + 1
 		}
 	}

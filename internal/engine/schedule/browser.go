@@ -201,15 +201,11 @@ func (b *Browser) push(t *task.Task) {
 
 // todo: 需要替换
 func (b *Browser) delete(id uint64) *task.Task {
-	// return b.taskQueue.Delete(t.Name)
-	// return b.taskTree.Delete(id)
 	return nil
 }
 
 // todo: 需要替换
 func (b *Browser) query(name string) *task.Task {
-	//b.taskQueue.Query(name)
-	// return b.taskTree.Query(name)
 	return nil
 }
 
