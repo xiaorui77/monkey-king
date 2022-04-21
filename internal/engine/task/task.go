@@ -3,6 +3,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/xiaorui77/goutils/timeutils"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"math/rand"
 	"net/url"
@@ -211,7 +212,8 @@ type ErrDetail struct {
 }
 
 func (e *ErrDetail) String() string {
-	return fmt.Sprintf("ERR[%d] start:%s cost: %0.1fs msg: %s", e.ErrCode, e.Start.Format("15:04:05.000"), e.Cost.Seconds(), e.ErrMsg)
+	return fmt.Sprintf("ERR[%d] start:%s cost: %0.1fs msg: %s",
+		e.ErrCode, e.Start.Format(timeutils.StampMilli), e.Cost.Seconds(), e.ErrMsg)
 }
 
 const (

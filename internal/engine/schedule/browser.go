@@ -17,8 +17,9 @@ import (
 type Browser struct {
 	scheduler *Scheduler
 
-	mu sync.Mutex
-	wg sync.WaitGroup
+	mu    sync.Mutex
+	wg    sync.WaitGroup
+	numCh chan int
 
 	domain     string
 	processNum int
@@ -53,6 +54,8 @@ func (b *Browser) boot(ctx context.Context) {
 			b.close()
 			logx.Infof("[scheduler] The Browser[%s] has been stopped", b.domain)
 			return
+		case num := <-b.numCh:
+			b.setProcess(ctx, num)
 		case <-time.Tick(time.Second * 10):
 			logx.Debugf("[scheduler] The Browser[%s] will run retryFailed", b.domain)
 			b.retryFailed()
@@ -87,6 +90,10 @@ func (b *Browser) setProcess(ctx context.Context, num int) {
 		}
 	}
 	b.processNum = num
+}
+
+func (b *Browser) SetProcess(num int) {
+	b.numCh <- num
 }
 
 // 一个工作线程
