@@ -10,7 +10,7 @@ import (
 	"github.com/xiaorui77/monker-king/internal/config"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule/api"
-	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"github.com/xiaorui77/monker-king/internal/storage"
 	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
@@ -23,6 +23,7 @@ type Collector struct {
 	config    *config.Config
 	scheduler *schedule.Scheduler
 	store     storage.Store
+	storage   storage.Storage
 
 	// visited list
 	visitedList map[string]bool
@@ -47,13 +48,14 @@ func NewCollector(config *config.Config) (*Collector, error) {
 	}
 
 	c := &Collector{
-		config: config,
-		store:  store,
+		config:  config,
+		store:   store,
+		storage: storage.NewStorage("127.0.0.1:3306"),
 
 		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
 	}
-	c.scheduler = schedule.NewRunner(c, store)
+	c.scheduler = schedule.NewRunner(c, c.storage)
 	return c, nil
 }
 
@@ -68,43 +70,35 @@ func (c *Collector) TaskManager() api.TaskManage {
 }
 
 // Visit 是对外的接口, 可以访问指定url
-func (c *Collector) Visit(parent *task.Task, rawUrl string) error {
+func (c *Collector) Visit(rawUrl string) error {
 	logx.Infof("[collector] Visit url: %v", rawUrl)
 	if len(rawUrl) == 0 {
 		return errors.New("rawUrl is empty")
 	}
 
-	u, err := url.Parse(rawUrl)
-	if err != nil {
+	if _, err := url.Parse(rawUrl); err != nil {
 		logx.Warnf("[collector] new schedule failed with parse url(%v): %v", rawUrl, err)
 		return err
 	}
-	return c.visit(parent, u)
+	return c.visit(nil, rawUrl)
 }
 
 // Download 下载保存, todo: 移动到parsing中
 func (c *Collector) Download(t *task.Task, name, path string, urlRaw string) error {
-	u, err := url.Parse(urlRaw)
-	if err != nil {
+	if _, err := url.Parse(urlRaw); err != nil {
 		logx.Warnf("[schedule] new schedule failed with parse url(%v): %v", urlRaw, err)
 		return errors.New("未能识别的URL")
 	}
-	c.scheduler.AddTask(task.NewTask(name, t, u, c.save).
-		SetPriority(1).SetMeta("save_path", path).SetMeta("save_name", name))
-	return nil
+	return c.scheduler.AddTask(task.NewTask(name, t, urlRaw, c.save).
+		SetPriority(1).SetMeta(task.MetaSavePath, path).SetMeta("save_name", name))
 }
 
-func (c *Collector) visit(parent *task.Task, u *url.URL) error {
-	if len(u.Host) == 0 {
-		logx.Warnf("[collector] visit url(%s) failed: rawUrl is invalid", u.String())
-		return errors.New("rawUrl is invalid")
-	}
-	if err := c.filter(u); err != nil {
-		logx.Warnf("[collector] filter url(%s) cause by: %v", u.String(), err)
+func (c *Collector) visit(parent *task.Task, url string) error {
+	if err := c.filter(url); err != nil {
+		logx.Warnf("[collector] filter url(%s) cause by: %v", url, err)
 		return err
 	}
-
-	return c.AddTask(task.NewTask("", parent, u, c.parsing))
+	return c.AddTask(task.NewTask("", parent, url, c.parsing))
 }
 
 func (c *Collector) AddTask(t *task.Task) error {
@@ -126,8 +120,8 @@ func (c *Collector) parsing(task *task.Task, resp *types.ResponseWarp) error {
 
 // 回调函数: 保存文件
 func (c *Collector) save(t *task.Task, resp *types.ResponseWarp) error {
-	name := t.Meta["save_name"].(string)
-	path := t.Meta["save_path"].(string)
+	name := t.Meta[task.MetaSaveName].(string)
+	path := t.Meta[task.MetaSavePath].(string)
 
 	logx.Infof("[collector] Task[%x] save file \"%s\" to: %s", t.ID, name, path)
 	return fileutil.SaveImage(resp.Body, path, name)
@@ -153,8 +147,8 @@ func (c *Collector) handleOnHtml(task *task.Task, resp *types.ResponseWarp) {
 }
 
 // @return ok: 是否继续
-func (c *Collector) filter(u *url.URL) error {
-	if c.isVisited(u.String()) {
+func (c *Collector) filter(url string) error {
+	if c.isVisited(url) {
 		return fmt.Errorf("the URL has been browsed")
 	}
 	return nil

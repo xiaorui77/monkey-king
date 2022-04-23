@@ -3,7 +3,7 @@ package collector
 import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/xiaorui77/goutils/logx"
-	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"golang.org/x/net/html"
 )
@@ -49,7 +49,7 @@ func (e *HTMLElement) Visit(u string) error {
 		URL.Scheme = e.Request.URL.Scheme
 	}
 	logx.Infof("[parsing] Task[%x] add sub task: %v", e.task.ID, URL.String())
-	return e.Collector.visit(e.task, URL)
+	return e.Collector.visit(e.task, URL.String())
 }
 
 func (e *HTMLElement) GetText(selector, def string) string {

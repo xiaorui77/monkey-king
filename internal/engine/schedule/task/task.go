@@ -3,10 +3,8 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/xiaorui77/goutils/timeutils"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"math/rand"
-	"net/url"
 	"time"
 )
 
@@ -19,13 +17,15 @@ type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
 const (
 	// StateUnknown 0值
-	StateUnknown       = iota // 创建时默认值
-	StateScheduling           // 已经被调度
-	StateRunning              // 已经开始运行
-	StateInit                 // 添加之前
-	StateFailed               // 运行失败
-	StateSuccessful           // 运行成功
-	StateSuccessfulAll        // 自己+所有子孙节点均运行成功
+	StateUnknown         = iota // 创建时默认值
+	StateScheduling             // 已经被调度
+	StateRunning                // 已经开始运行
+	StateInit                   // 添加之前
+	StateFailed                 // 运行失败
+	StateSuccessful             // 运行成功
+	StateSuccessfulNoall        // 不完全成功
+	StateCompleteNoall          // 运行完成但是没有全成功(有些重试也解决不了)
+	StateSuccessfulAll          // 自己+所有子孙节点均运行成功
 )
 
 var StateStatus = map[int]string{
@@ -39,38 +39,37 @@ var StateStatus = map[int]string{
 }
 
 type Task struct {
-	ID       uint64                 `json:"id"`
-	ParentId uint64                 `json:"pid"`
-	Parent   *Task                  `json:"-"`
-	Depth    int                    `json:"depth"`
-	Name     string                 `json:"name"`
-	State    int                    `json:"state"`
-	Url      *url.URL               `json:"-"`
-	Domain   string                 `json:"domain"`
-	Meta     map[string]interface{} `json:"meta"`
-
+	ID       uint64 `json:"id" gorm:"primaryKey"`
+	ParentId uint64 `json:"pid"`
+	Parent   *Task  `json:"-" gorm:"-"`
+	Depth    int    `json:"depth"`
+	Name     string `json:"name"`
+	State    int    `json:"state"`
+	Url      string `json:"url"`
+	Domain   string `json:"domain"`
+	Meta     Meta   `json:"meta" gorm:"type:string"`
 	// 优先级: [0, MAX_INT), 值越大优先级越高
 	Priority int `json:"priority"`
 
-	Time       time.Time   `json:"createTime"`          // 创建时间
+	CreateTime time.Time   `json:"createTime"`          // 创建时间
 	StartTime  time.Time   `json:"startTime,omitempty"` // 运行开始时间, 重试时会重置
 	EndTime    time.Time   `json:"endTime,omitempty"`   // 运行结束时间(保护成功和失败), 重试时会重置
 	ErrDetails []ErrDetail `json:"errDetails,omitempty"`
 
-	Children *TaskList `json:"children"`
+	Children *List `json:"children" gorm:"embedded"`
 
 	// 主回调函数, 后续考虑优化合并
-	Callback MainCallback `json:"-"`
+	Callback MainCallback `json:"-" gorm:"-"`
 }
 
-func NewTask(name string, parent *Task, url *url.URL, fun MainCallback) *Task {
+func NewTask(name string, parent *Task, url string, fun MainCallback) *Task {
 	t := &Task{
-		ID:       uint64(rand.Uint32()),
-		Name:     name,
-		Meta:     make(map[string]interface{}, 5),
-		Url:      url,
-		Time:     time.Now(),
-		Callback: fun,
+		ID:         uint64(rand.Uint32()),
+		Name:       name,
+		Meta:       make(map[string]interface{}, 5),
+		Url:        url,
+		CreateTime: time.Now(),
+		Callback:   fun,
 	}
 	if parent != nil {
 		t.ParentId = parent.ID
@@ -91,6 +90,7 @@ func (t *Task) ResetDepth() *Task {
 	return t
 }
 
+// SetMeta 保存K-V到meta中, 但不会立即持久化到db
 func (t *Task) SetMeta(key string, value interface{}) *Task {
 	if key != "" && value != nil {
 		t.Meta[key] = value
@@ -108,40 +108,37 @@ func (t *Task) GetState() string {
 func (t *Task) SetState(state int) {
 	t.State = state
 	switch t.State {
+	case StateRunning:
+		t.StartTime = time.Now()
 	case StateSuccessful:
+		if t.EndTime.IsZero() {
+			t.EndTime = time.Now()
+		}
 		p := t.Parent
 		if p != nil && p.Children != nil && p.Children.isSuccessfulAll() {
 			p.State = StateSuccessfulAll
 		}
+	case StateFailed:
+		t.EndTime = time.Now()
 	case StateSuccessfulAll:
 		// 执行回调
 	}
 }
 
-func (t *Task) RecordStart() {
-	t.State = StateRunning
-	t.StartTime = time.Now()
-}
-
-func (t *Task) RecordSuccess() {
-	t.SetState(StateSuccessful)
-	t.EndTime = time.Now()
-}
-
+// RecordErr record err detail, be called after SetState(StateFailed)
 func (t *Task) RecordErr(code int, msg string) {
-	t.SetState(StateFailed)
-	t.EndTime = time.Now()
-	t.ErrDetails = append(t.ErrDetails, ErrDetail{
-		Start:   t.StartTime,
-		End:     t.EndTime,
-		Cost:    t.EndTime.Sub(t.StartTime),
-		ErrCode: code,
-		ErrMsg:  msg,
-	})
+	detail := ErrDetail{
+		StartTime: t.StartTime,
+		EndTime:   t.EndTime,
+		Cost:      Cost(t.EndTime.Sub(t.StartTime)),
+		ErrCode:   code,
+		ErrMsg:    msg,
+	}
+	t.ErrDetails = append(t.ErrDetails, detail)
 }
 
 func (t *Task) String() string {
-	return fmt.Sprintf("[%x]%s: %s", t.ID, t.Name, t.Url.String())
+	return fmt.Sprintf("[%x]%s: %s", t.ID, t.Name, t.Url)
 }
 
 func (t *Task) IsSuccessful() bool {
@@ -182,13 +179,13 @@ func (t *Task) nextSub() *Task {
 }
 
 func (t *Task) ListAll() []*Task {
-	res := make([]*Task, 0, len(t.Children.list))
+	res := make([]*Task, 0, len(t.Children.Tasks))
 	res = append(res, t)
 
 	for i := 0; i < len(res); i++ {
 		task := res[i]
 		if task.Children != nil {
-			res = append(res, task.Children.list...)
+			res = append(res, task.Children.Tasks...)
 		}
 	}
 	return res
@@ -200,30 +197,5 @@ func (t *Task) MarshalJSON() ([]byte, error) {
 		*Alias
 		Status string `json:"status"`
 		Url    string `json:"url"`
-	}{(*Alias)(t), t.GetState(), t.Url.String()})
+	}{(*Alias)(t), t.GetState(), t.Url})
 }
-
-type ErrDetail struct {
-	Start   time.Time
-	End     time.Time
-	Cost    time.Duration
-	ErrCode int
-	ErrMsg  string
-}
-
-func (e *ErrDetail) String() string {
-	return fmt.Sprintf("ERR[%d] start:%s cost: %0.1fs msg: %s",
-		e.ErrCode, e.Start.Format(timeutils.StampMilli), e.Cost.Seconds(), e.ErrMsg)
-}
-
-const (
-	// ErrUnknown 0值
-	ErrUnknown      = iota
-	ErrNewRequest   = 512
-	ErrDoRequest    = 512 + 4
-	ErrReadRespBody = 1024
-	ErrCallback     = 1024 + 16
-	ErrCallbackTask = 1024 + 16 + 4
-	ErrHttpUnknown  = 10000 // 包装http错误码
-	ErrHttpNotFount = 10404 // 404页面
-)

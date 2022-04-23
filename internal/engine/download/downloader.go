@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/xiaorui77/goutils/logx"
-	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"github.com/xiaorui77/monker-king/internal/utils"
 	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
@@ -55,7 +55,7 @@ func NewDownloader() *Downloader {
 // Get send an HTTP Request by GET Method.
 // Caller should close resp.Body when done reading from it.
 func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp, error.Error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.Url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.Url, nil)
 	if err != nil {
 		logx.Errorf("[downloader] request.Get failed: %v")
 		return nil, &error.Err{Err: err, Code: task.ErrNewRequest}
@@ -83,7 +83,7 @@ func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp
 	}
 	body, err := reader.ReadAll()
 	if err != nil {
-		t.SetMeta("reader", reader) // convention：如果有错误，则记录reader
+		t.SetMeta(task.MetaReader, reader) // convention：如果有错误，则记录reader
 		return nil, &error.Err{Code: task.ErrReadRespBody,
 			Err: fmt.Errorf("reading resp.Body when[%v/%v] failed: %v", reader.Cur, reader.Total, err),
 		}

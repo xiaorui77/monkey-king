@@ -12,7 +12,7 @@ func (m *Manager) HandleAddTask(c *httpr.Context) {
 		return
 	}
 
-	c.ResultMessage(fmt.Sprintf("add task success: %v", data.Url), m.collector.Visit(nil, data.Url))
+	c.ResultMessage(fmt.Sprintf("add task success: %v", data.Url), m.collector.Visit(data.Url))
 }
 
 func (m *Manager) HandleDeleteTask(c *httpr.Context) {
@@ -22,7 +22,7 @@ func (m *Manager) HandleDeleteTask(c *httpr.Context) {
 		return
 	}
 
-	if t := m.collector.TaskManager().DeleteTask("", data.Id); t != nil {
+	if m.collector.TaskManager().DeleteTask("", data.Id) {
 		c.ResultMessage(fmt.Sprintf("delete task success: %v", data.Url), nil)
 	} else {
 		c.ResultError(fmt.Errorf("not found"))

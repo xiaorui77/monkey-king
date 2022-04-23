@@ -1,6 +1,7 @@
 package domainutil
 
 import (
+	"github.com/xiaorui77/goutils/logx"
 	"net/url"
 	"regexp"
 )
@@ -42,7 +43,12 @@ func init() {
 }
 
 // CalDomain 计算归属
-func CalDomain(u *url.URL) string {
+func CalDomain(urlRaw string) string {
+	u, err := url.Parse(urlRaw)
+	if err != nil {
+		logx.Warnf("cal domain[%v] error: %v", urlRaw, err)
+		return "default"
+	}
 	uh := u.Hostname()
 
 	// 精确匹配

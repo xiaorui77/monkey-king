@@ -7,7 +7,7 @@ import (
 	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/engine/api"
 	"github.com/xiaorui77/monker-king/internal/engine/download"
-	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/storage"
 	"github.com/xiaorui77/monker-king/internal/utils/domainutil"
 	"github.com/xiaorui77/monker-king/pkg/model"
@@ -36,14 +36,14 @@ const (
 type Scheduler struct {
 	parsing  api.Parsing
 	download *download.Downloader
-	store    storage.Store
+	store    storage.Storage
 
 	taskQueue chan *task.Task
 	// 以domain分开的队列
 	browsers map[string]*Browser
 }
 
-func NewRunner(parsing api.Parsing, store storage.Store) *Scheduler {
+func NewRunner(parsing api.Parsing, store storage.Storage) *Scheduler {
 	return &Scheduler{
 		parsing:   parsing,
 		download:  download.NewDownloader(),
@@ -100,7 +100,7 @@ func (s *Scheduler) GetRows() []interface{} {
 		// 默认排序: state,time
 		sort.SliceStable(ls, func(i, j int) bool {
 			if ls[i].State == ls[j].State {
-				return ls[i].Time.Unix() > ls[j].Time.Unix()
+				return ls[i].CreateTime.Unix() > ls[j].CreateTime.Unix()
 			}
 			return ls[i].State < ls[j].State
 		})
@@ -111,7 +111,7 @@ func (s *Scheduler) GetRows() []interface{} {
 				Name:   t.Name,
 				Domain: domain.domain,
 				State:  t.GetState(),
-				URL:    t.Url.String(),
+				URL:    t.Url,
 			}
 			if t.State == task.StateFailed && len(t.ErrDetails) > 0 {
 				row.LastError = strconv.Itoa(t.ErrDetails[len(t.ErrDetails)-1].ErrCode)
@@ -140,16 +140,18 @@ func (s *Scheduler) GetTask(domain, task string) *task.Task {
 	return nil
 }
 
-func (s *Scheduler) DeleteTask(domain string, id uint64) *task.Task {
+func (s *Scheduler) DeleteTask(domain string, id uint64) bool {
 	if b, ok := s.browsers[domain]; ok {
-		return b.delete(id)
+		if t := b.delete(id); t != nil {
+			return true
+		}
 	}
 	for _, b := range s.browsers {
 		if t := b.delete(id); t != nil {
-			return t
+			return true
 		}
 	}
-	return nil
+	return false
 }
 
 func (s *Scheduler) SetProcess(domain string, num int) {

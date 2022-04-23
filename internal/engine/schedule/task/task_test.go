@@ -1,14 +1,13 @@
 package task
 
 import (
-	"net/url"
 	"testing"
 )
 
 var root *Task
 
 func setup() {
-	u, _ := url.Parse("https://example.com")
+	u := "https://example.com"
 	root = NewTask("root", nil, u, nil)
 	a1 := NewTask("a1", root, u, nil)
 	a2 := NewTask("a2", root, u, nil)
@@ -29,7 +28,7 @@ func TestListAll(t *testing.T) {
 }
 
 func TestNext(t *testing.T) {
-	u, _ := url.Parse("https://example.com")
+	u := "https://example.com"
 	a := NewTask("a", nil, u, nil)
 	a.SetState(StateInit)
 	b := NewTask("b", nil, u, nil)

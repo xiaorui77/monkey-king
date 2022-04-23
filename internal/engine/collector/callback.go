@@ -2,7 +2,7 @@ package collector
 
 import (
 	"fmt"
-	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"github.com/xiaorui77/monker-king/pkg/error"
 	"net/http"

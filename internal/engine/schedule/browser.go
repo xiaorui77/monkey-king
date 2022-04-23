@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/timeutils"
-	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
+	"gorm.io/gorm"
 	"sync"
 	"time"
 )
@@ -23,17 +24,17 @@ type Browser struct {
 
 	domain     string
 	processNum int
-	processes  []*process
+	processes  []*Process
 
-	MaxDepth int            // 最大层级, 包括下一页等
-	taskList *task.TaskList // 存储结构
+	MaxDepth int        // 最大层级, 包括下一页等
+	taskList *task.List // 存储结构
 }
 
 func NewBrowser(s *Scheduler, domain string) *Browser {
 	return &Browser{
 		scheduler: s,
 		domain:    domain,
-		processes: make([]*process, 0, 5),
+		processes: make([]*Process, 0, 5),
 
 		taskList: task.NewTaskList(),
 		MaxDepth: MaxDepth,
@@ -56,8 +57,8 @@ func (b *Browser) boot(ctx context.Context) {
 			return
 		case num := <-b.numCh:
 			b.setProcess(ctx, num)
-		case <-time.Tick(time.Second * 10):
-			logx.Debugf("[scheduler] The Browser[%s] will run retryFailed", b.domain)
+		case <-time.Tick(time.Second * 20):
+			logx.Debugf("[scheduler] The Browser[%s] run retryFailed", b.domain)
 			b.retryFailed()
 		}
 	}
@@ -70,7 +71,7 @@ func (b *Browser) setProcess(ctx context.Context, num int) {
 	if b.processNum < num {
 		for index := b.processNum; index < num; index++ {
 			cancelledCtx, cancel := context.WithCancel(ctx)
-			p := &process{browser: b, index: index, cancelFn: cancel}
+			p := &Process{browser: b, index: index, cancelFn: cancel}
 			b.processes = append(b.processes, p)
 			b.wg.Add(1)
 			go func(index int) {
@@ -96,85 +97,42 @@ func (b *Browser) SetProcess(num int) {
 	b.numCh <- num
 }
 
-// 一个工作线程
-type process struct {
-	browser  *Browser
-	index    int                // 计数
-	cancelFn context.CancelFunc // 停止函数
-}
-
-func (p *process) run(ctx context.Context) {
-	defer func() {
-		defer p.cancelFn()
-		logx.Errorf("[scheduler] Browser[%s] process[%d] has panic", p.browser.domain, p.index)
-		if err := recover(); err != nil {
-			logx.Errorf("[scheduler] Browser[%s] process[%d] panic, recover failed: %v", p.browser.domain, p.index, err)
-		}
-	}()
-
-	logx.Infof("[scheduler] Browser[%s] Process[%d] has already started...", p.browser.domain, p.index)
-	for {
-		select {
-		case <-ctx.Done():
-			logx.Infof("[scheduler] Browser[%s] Process[%d] has been stopped", p.browser.domain, p.index)
-			return
-		default:
-			p.process(ctx, p.index)
-		}
-		time.Sleep(time.Second * TaskInterval)
+func (b *Browser) recordErr(t *task.Task, code int, msg string) {
+	t.SetState(task.StateFailed)
+	t.RecordErr(code, msg)
+	if err := b.scheduler.store.GetDB().Save(t).UpdateColumn("err_num", len(t.ErrDetails)).Error; err != nil {
+		logx.Errorf("[storage] update task[08x] state error: %v", t.ID, err)
 	}
 }
 
-// 工作过程
-func (p *process) process(ctx context.Context, index int) {
-	t := p.browser.next()
-	if t == nil {
-		logx.Debugf("[process-%d] no found tasks", index)
-		return
+func (b *Browser) recordStart(t *task.Task) {
+	t.SetState(task.StateRunning)
+	if err := b.scheduler.store.GetDB().Save(t).Error; err != nil {
+		logx.Errorf("[storage] update task[%08x] error: %v", t.ID, err)
 	}
-	logx.Infof("[process-%d] Task[%x] begin run, url: %s", index, t.ID, t.Url)
-	t.RecordStart()
+}
 
-	// 设置超时并使用GET进行请求
-	tCtx, cancelFunc := context.WithTimeout(ctx, p.browser.timeout(t))
-	defer cancelFunc()
-	resp, err := p.browser.scheduler.download.Get(tCtx, t)
-	if err != nil {
-		logx.Errorf("[process-%d] Task[%x] run fail, request(GET) fail: %v", index, t.ID, err)
-		t.RecordErr(err.ErrCode(), err.Error())
-		return
+func (b *Browser) recordSuccess(t *task.Task) {
+	t.SetState(task.StateSuccessful)
+	if err := b.scheduler.store.GetDB().Save(t).Error; err != nil {
+		logx.Errorf("[storage] update task[%08x] error: %v", t.ID, err)
 	}
-
-	logx.Infof("[process-%d] Task[%x] request finish, will handle Callbacks", index, t.ID)
-	if err := p.browser.scheduler.parsing.HandleOnResponse(resp); err != nil {
-		logx.Errorf("[process-%d] Task[%x] run fail, handle ResponseCallback failed: %v", index, t.ID, err)
-		t.RecordErr(err.ErrCode(), err.Error())
-		return
-	}
-	if err := t.Callback(t, resp); err != nil {
-		logx.Errorf("[process-%d] Task[%x] handle task.Callback failed: %v", index, t.ID, err)
-		t.RecordErr(task.ErrCallbackTask, err.Error())
-		return
-	}
-
-	t.RecordSuccess()
-	logx.Infof("[process-%d] Task[%x] run success", index, t.ID)
 }
 
 func (b *Browser) timeout(t *task.Task) (tt time.Duration) {
 	defer func() {
 		// defer + func() {} 的形式是可以将返回值传进来的, 如果是defer直接+t.SetMeta(), 则tt=0
-		t.SetMeta("timeout", tt)
+		t.SetMeta(task.MetaTimeout, tt.Seconds())
 	}()
 	if len(t.ErrDetails) == 0 {
 		return DefaultTimeout
 	}
 	// 基于上次reader的情况计算超时时间
-	lastTimeout, ltOk := t.Meta["timeout"].(time.Duration)
-	reader, rOk := t.Meta["reader"].(*fileutil.VisualReader)
+	lastTimeout, ltOk := t.Meta[task.MetaTimeout].(time.Duration)
+	reader, rOk := t.Meta[task.MetaReader].(*fileutil.VisualReader)
 	if ltOk && rOk && lastTimeout > 0 && reader.Cur > 0 && reader.Total > 0 {
-		dur := lastTimeout * time.Duration(reader.Total) / time.Duration(reader.Cur)
-		return timeutils.Min(DefaultTimeout+dur, MaxTimeout)
+		timeout := lastTimeout * time.Duration(reader.Total) / time.Duration(reader.Cur)
+		return timeutils.Min(DefaultTimeout+time.Second*timeout, MaxTimeout)
 	}
 	return timeutils.Min(DefaultTimeout+time.Second*45*time.Duration(len(t.ErrDetails)), MaxTimeout)
 }
@@ -190,7 +148,12 @@ func (b *Browser) close() {
 func (b *Browser) next() *task.Task {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.taskList.Next()
+
+	t := b.taskList.Next()
+	if err := b.scheduler.store.GetDB().Model(t).UpdateColumn("state", t.State).Error; err != nil {
+		logx.Errorf("[storage] update task[%08x] error: %v", t.ID, err)
+	}
+	return t
 }
 
 func (b *Browser) push(t *task.Task) {
@@ -203,6 +166,10 @@ func (b *Browser) push(t *task.Task) {
 		t.Parent.Push(t)
 	} else {
 		b.taskList.Push(t)
+	}
+	// 持久化
+	if err := b.scheduler.store.GetDB().Create(t).Error; err != nil {
+		logx.Errorf("[storage] save task[%08x] to db error: %v", t.ID, err)
 	}
 }
 
@@ -221,6 +188,11 @@ func (b *Browser) retryFailed() {
 	defer b.mu.Unlock()
 
 	b.taskList.RetryFailed()
+	for _, t := range b.taskList.Tasks {
+		if err := b.scheduler.store.GetDB().Session(&gorm.Session{FullSaveAssociations: true}).Updates(t).Error; err != nil {
+			logx.Errorf("[storage] update tasks state error: %v", err)
+		}
+	}
 }
 
 func (b *Browser) list() []*task.Task {
@@ -233,9 +205,9 @@ func (b *Browser) tree() *Browser {
 
 func (b *Browser) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Id         uint64         `json:"id"`
-		Name       string         `json:"name"`
-		ProcessNum int            `json:"processNum"`
-		Children   *task.TaskList `json:"children"`
+		Id         uint64     `json:"id"`
+		Name       string     `json:"name"`
+		ProcessNum int        `json:"processNum"`
+		Children   *task.List `json:"children"`
 	}{Id: 0, Name: b.domain, ProcessNum: b.processNum, Children: b.taskList})
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/config"
 	"github.com/xiaorui77/monker-king/internal/engine/collector"
-	"github.com/xiaorui77/monker-king/internal/engine/task"
+	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/manager"
 	"math/rand"
 	"os/signal"
