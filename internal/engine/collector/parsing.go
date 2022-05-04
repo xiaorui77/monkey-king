@@ -37,7 +37,7 @@ func NewHTMLElement(t *task.Task, collector *Collector, resp *types.ResponseWarp
 	}
 }
 
-func (e *HTMLElement) Visit(u string) error {
+func (e *HTMLElement) Visit(u string, resetDepth bool) error {
 	logx.Infof("[Parsing] Task[%x] continue Visit url: %v", e.task.ID, u)
 	URL, err := e.Request.URL.Parse(u)
 	if err != nil {
@@ -49,7 +49,7 @@ func (e *HTMLElement) Visit(u string) error {
 		URL.Scheme = e.Request.URL.Scheme
 	}
 	logx.Infof("[parsing] Task[%x] add sub task: %v", e.task.ID, URL.String())
-	return e.Collector.visit(e.task, URL.String())
+	return e.Collector.visit(e.task, URL.String(), resetDepth)
 }
 
 func (e *HTMLElement) GetText(selector, def string) string {

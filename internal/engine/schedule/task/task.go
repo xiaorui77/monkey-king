@@ -15,6 +15,8 @@ func init() {
 // MainCallback 主回调函数, 仅200且无错误执行
 type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
+type OnCreated func(task *Task)
+
 const (
 	// StateUnknown 0值
 	StateUnknown         = iota // 创建时默认值
@@ -59,7 +61,8 @@ type Task struct {
 	Children *List `json:"children" gorm:"embedded"`
 
 	// 主回调函数, 后续考虑优化合并
-	Callback MainCallback `json:"-" gorm:"-"`
+	Callback        MainCallback `json:"-" gorm:"-"`
+	OnCreateHandler OnCreated    `json:"-" gorm:"-"`
 }
 
 func NewTask(name string, parent *Task, url string, fun MainCallback) *Task {
@@ -77,6 +80,7 @@ func NewTask(name string, parent *Task, url string, fun MainCallback) *Task {
 		t.Domain = parent.Domain
 		t.Depth = parent.Depth + 1
 	}
+	t.HandleOnCreated()
 	return t
 }
 
@@ -111,7 +115,7 @@ func (t *Task) SetState(state int) {
 	case StateRunning:
 		t.StartTime = time.Now()
 	case StateSuccessful:
-		if t.EndTime.IsZero() {
+		if t.State >= StateSuccessful {
 			t.EndTime = time.Now()
 		}
 		p := t.Parent
@@ -176,6 +180,16 @@ func (t *Task) nextSub() *Task {
 		return t.Children.Next()
 	}
 	return nil
+}
+
+func (t *Task) HandleOnCreated() {
+	if t.OnCreateHandler != nil {
+		t.OnCreateHandler(t)
+	}
+}
+
+func (t *Task) AddOnCreatedHandler(handler OnCreated) {
+	t.OnCreateHandler = handler
 }
 
 func (t *Task) ListAll() []*Task {

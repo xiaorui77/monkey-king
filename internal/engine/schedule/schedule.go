@@ -20,15 +20,15 @@ const (
 	// Parallelism is maximum concurrent number of the same domain.
 	Parallelism = 4
 
-	// MaxDepth 为Task默认的最大深度
+	// MaxDepth is max exploit depth of task
 	MaxDepth = 3
 
 	taskQueueSize = 100
 
-	// TaskInterval Task执行间隔
-	TaskInterval = 3
+	// TaskInterval task run interval
+	TaskInterval = 1
 
-	// DefaultTimeout is task 默认的超时时间
+	// DefaultTimeout is task default timeout
 	DefaultTimeout = time.Second * 30
 	MaxTimeout     = download.MaxTimeout
 )
@@ -39,7 +39,7 @@ type Scheduler struct {
 	store    storage.Storage
 
 	taskQueue chan *task.Task
-	// 以domain分开的队列
+	// browser divide by domain
 	browsers map[string]*Browser
 }
 
@@ -58,7 +58,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			// 等等所有browsers自行退出
+			// Wait for all browsers to exit by themselves
 			logx.Infof("[scheduler] ctx.done waiting for all browsers to stop")
 			wait.WaitUntil(func() bool { return len(s.browsers) == 0 })
 			logx.Debugf("[scheduler] all browsers has been stopped")

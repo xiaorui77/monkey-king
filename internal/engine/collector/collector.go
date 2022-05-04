@@ -50,7 +50,7 @@ func NewCollector(config *config.Config) (*Collector, error) {
 	c := &Collector{
 		config:  config,
 		store:   store,
-		storage: storage.NewStorage("127.0.0.1:3306"),
+		storage: storage.NewStorage("192.168.17.1:3306"),
 
 		visitedList:   map[string]bool{},
 		htmlCallbacks: nil,
@@ -80,7 +80,7 @@ func (c *Collector) Visit(rawUrl string) error {
 		logx.Warnf("[collector] new schedule failed with parse url(%v): %v", rawUrl, err)
 		return err
 	}
-	return c.visit(nil, rawUrl)
+	return c.visit(nil, rawUrl, true)
 }
 
 // Download 下载保存, todo: 移动到parsing中
@@ -93,12 +93,18 @@ func (c *Collector) Download(t *task.Task, name, path string, urlRaw string) err
 		SetPriority(1).SetMeta(task.MetaSavePath, path).SetMeta("save_name", name))
 }
 
-func (c *Collector) visit(parent *task.Task, url string) error {
+func (c *Collector) visit(parent *task.Task, url string, resetDepth bool) error {
 	if err := c.filter(url); err != nil {
 		logx.Warnf("[collector] filter url(%s) cause by: %v", url, err)
 		return err
 	}
-	return c.AddTask(task.NewTask("", parent, url, c.parsing))
+	t := task.NewTask("", parent, url, c.parsing)
+	if resetDepth {
+		t.AddOnCreatedHandler(func(task *task.Task) {
+			task.Depth = 0
+		})
+	}
+	return c.AddTask(t)
 }
 
 func (c *Collector) AddTask(t *task.Task) error {

@@ -16,11 +16,10 @@ type Process struct {
 
 func (p *Process) run(ctx context.Context) {
 	defer func() {
-		defer p.cancelFn()
-		logx.Errorf("[scheduler] Browser[%s] process[%d] has panic", p.browser.domain, p.index)
 		if err := recover(); err != nil {
-			logx.Errorf("[scheduler] Browser[%s] process[%d] panic, recover failed: %v", p.browser.domain, p.index, err)
+			logx.Errorf("[scheduler] Browser[%s] process[%d] has panic and recover: %v", p.browser.domain, p.index, err)
 		}
+		p.cancelFn()
 	}()
 
 	logx.Infof("[scheduler] Browser[%s] Process[%d] has already started...", p.browser.domain, p.index)
@@ -56,7 +55,8 @@ func (p *Process) process(ctx context.Context, index int) {
 		return
 	}
 
-	logx.Infof("[process-%d] Task[%x] request finish, will handle Callbacks", index, t.ID)
+	cost := time.Now().Sub(t.StartTime).Truncate(time.Millisecond * 100).Seconds()
+	logx.Infof("[process-%d] Task[%x] request finish, cost: %0.1fs, will handle Callbacks", index, t.ID, cost)
 	if err := p.browser.scheduler.parsing.HandleOnResponse(resp); err != nil {
 		logx.Errorf("[process-%d] Task[%x] run fail, handle ResponseCallback failed: %v", index, t.ID, err)
 		p.browser.recordErr(t, err.ErrCode(), err.Error())
@@ -69,5 +69,6 @@ func (p *Process) process(ctx context.Context, index int) {
 	}
 
 	p.browser.recordSuccess(t)
-	logx.Infof("[process-%d] Task[%x] run success", index, t.ID)
+	totalCost := t.EndTime.Sub(t.StartTime).Truncate(time.Millisecond * 100).Seconds()
+	logx.Infof("[process-%d] Task[%x] run success, total cost: %0.1fs", index, t.ID, totalCost)
 }

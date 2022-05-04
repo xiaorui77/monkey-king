@@ -150,6 +150,9 @@ func (b *Browser) next() *task.Task {
 	defer b.mu.Unlock()
 
 	t := b.taskList.Next()
+	if t == nil {
+		return nil
+	}
 	if err := b.scheduler.store.GetDB().Model(t).UpdateColumn("state", t.State).Error; err != nil {
 		logx.Errorf("[storage] update task[%08x] error: %v", t.ID, err)
 	}
