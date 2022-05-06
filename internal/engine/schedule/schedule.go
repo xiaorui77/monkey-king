@@ -29,7 +29,7 @@ const (
 	TaskInterval = 1
 
 	// DefaultTimeout is task default timeout
-	DefaultTimeout = time.Second * 30
+	DefaultTimeout = time.Second * 15
 	MaxTimeout     = download.MaxTimeout
 )
 

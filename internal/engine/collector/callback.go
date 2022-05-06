@@ -17,7 +17,10 @@ func (c *Collector) HandleOnResponse(resp *types.ResponseWarp) error.Error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return &error.Err{Code: task.ErrHttpUnknown + resp.StatusCode, Err: fmt.Errorf("response code is not ok[%v]", resp.StatusCode)}
+		return &error.Err{
+			Code: task.ErrHttpUnknown + resp.StatusCode,
+			Err:  fmt.Errorf("response code is not ok[%v] url: %v", resp.StatusCode, resp.Request.URL.String()),
+		}
 	}
 	return nil
 }

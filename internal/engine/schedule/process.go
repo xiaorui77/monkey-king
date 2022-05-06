@@ -42,15 +42,17 @@ func (p *Process) process(ctx context.Context, index int) {
 		logx.Debugf("[process-%d] no found tasks", index)
 		return
 	}
-	logx.Infof("[process-%d] Task[%x] begin run, url: %s", index, t.ID, t.Url)
+	timeout := p.browser.timeout(t)
+	logx.Infof("[process-%d] Task[%x] begin run, timeout: %vs, url: %s", index, t.ID, timeout.Truncate(time.Second).Seconds(), t.Url)
 	p.browser.recordStart(t)
 
 	// 设置超时并使用GET进行请求
-	tCtx, cancelFunc := context.WithTimeout(ctx, p.browser.timeout(t))
+	tCtx, cancelFunc := context.WithTimeout(ctx, timeout)
 	defer cancelFunc()
 	resp, err := p.browser.scheduler.download.Get(tCtx, t)
 	if err != nil {
-		logx.Errorf("[process-%d] Task[%x] run fail, request(GET) fail: %v", index, t.ID, err)
+		cost := time.Now().Sub(t.StartTime).Truncate(time.Millisecond * 100).Seconds()
+		logx.Errorf("[process-%d] Task[%x] run failed, cost: %0.1fs, request(GET) fail: %v", index, t.ID, cost, err)
 		p.browser.recordErr(t, err.ErrCode(), err.Error())
 		return
 	}
@@ -58,7 +60,7 @@ func (p *Process) process(ctx context.Context, index int) {
 	cost := time.Now().Sub(t.StartTime).Truncate(time.Millisecond * 100).Seconds()
 	logx.Infof("[process-%d] Task[%x] request finish, cost: %0.1fs, will handle Callbacks", index, t.ID, cost)
 	if err := p.browser.scheduler.parsing.HandleOnResponse(resp); err != nil {
-		logx.Errorf("[process-%d] Task[%x] run fail, handle ResponseCallback failed: %v", index, t.ID, err)
+		logx.Errorf("[process-%d] Task[%x] run failed, handle ResponseCallback failed: %v", index, t.ID, err)
 		p.browser.recordErr(t, err.ErrCode(), err.Error())
 		return
 	}

@@ -122,17 +122,17 @@ func (b *Browser) recordSuccess(t *task.Task) {
 func (b *Browser) timeout(t *task.Task) (tt time.Duration) {
 	defer func() {
 		// defer + func() {} 的形式是可以将返回值传进来的, 如果是defer直接+t.SetMeta(), 则tt=0
-		t.SetMeta(task.MetaTimeout, tt.Seconds())
+		t.SetMeta(task.MetaTimeout, int64(tt.Seconds()))
 	}()
 	if len(t.ErrDetails) == 0 {
 		return DefaultTimeout
 	}
 	// 基于上次reader的情况计算超时时间
-	lastTimeout, ltOk := t.Meta[task.MetaTimeout].(time.Duration)
+	lastTimeout, ltOk := t.Meta[task.MetaTimeout].(int64)
 	reader, rOk := t.Meta[task.MetaReader].(*fileutil.VisualReader)
 	if ltOk && rOk && lastTimeout > 0 && reader.Cur > 0 && reader.Total > 0 {
-		timeout := lastTimeout * time.Duration(reader.Total) / time.Duration(reader.Cur)
-		return timeutils.Min(DefaultTimeout+time.Second*timeout, MaxTimeout)
+		timeout := lastTimeout * reader.Total / reader.Cur * int64(len(t.ErrDetails)+1)
+		return timeutils.Min(DefaultTimeout+time.Second*time.Duration(timeout), MaxTimeout)
 	}
 	return timeutils.Min(DefaultTimeout+time.Second*45*time.Duration(len(t.ErrDetails)), MaxTimeout)
 }
@@ -190,8 +190,7 @@ func (b *Browser) retryFailed() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.taskList.RetryFailed()
-	for _, t := range b.taskList.Tasks {
+	if t := b.taskList.RetryFailed(); t != nil {
 		if err := b.scheduler.store.GetDB().Session(&gorm.Session{FullSaveAssociations: true}).Updates(t).Error; err != nil {
 			logx.Errorf("[storage] update tasks state error: %v", err)
 		}

@@ -26,7 +26,8 @@ type Collector struct {
 	storage   storage.Storage
 
 	// visited list
-	visitedList map[string]bool
+	visitedList  map[string]bool
+	visitedMutex sync.Mutex
 
 	// 抓取成功后回调
 	register sync.Mutex
@@ -98,12 +99,13 @@ func (c *Collector) visit(parent *task.Task, url string, resetDepth bool) error 
 		logx.Warnf("[collector] filter url(%s) cause by: %v", url, err)
 		return err
 	}
-	t := task.NewTask("", parent, url, c.parsing)
-	if resetDepth {
-		t.AddOnCreatedHandler(func(task *task.Task) {
-			task.Depth = 0
-		})
-	}
+	t := task.NewTask("", parent, url, c.parsing, task.AddOnCreatedHandler(
+		func(task *task.Task) {
+			if resetDepth {
+				task.Depth = 0
+			}
+		}))
+
 	return c.AddTask(t)
 }
 
@@ -161,6 +163,8 @@ func (c *Collector) filter(url string) error {
 }
 
 func (c *Collector) recordVisit(url string) {
+	c.visitedMutex.Lock()
+	defer c.visitedMutex.Unlock()
 	if c.config.Persistent {
 		c.store.Visit(url)
 	}
@@ -168,6 +172,8 @@ func (c *Collector) recordVisit(url string) {
 }
 
 func (c *Collector) isVisited(url string) bool {
+	c.visitedMutex.Lock()
+	defer c.visitedMutex.Unlock()
 	b, ok := c.visitedList[url]
 	if ok {
 		return b

@@ -52,7 +52,11 @@ func (l *List) Next() *Task {
 	return nil
 }
 
-func (l *List) RetryFailed() {
+func (l *List) RetryFailed() *Task {
+	if len(l.Tasks) == 0 || (l.Tasks[0].Parent != nil && l.Tasks[0].Parent.State == StateCompleteNoall) {
+		return nil
+	}
+	has := false
 	for _, t := range l.Tasks {
 		if t.State != StateFailed || len(t.ErrDetails) == 0 {
 			// 非错误或者错误无详情时调过分析
@@ -60,7 +64,7 @@ func (l *List) RetryFailed() {
 		}
 		if len(t.ErrDetails) > 5 {
 			logx.Warnf("[browser] Task[%x] failure more than 7 times, will no longer try again", t.ID)
-			continue // 超过7次不再重试
+			continue // 超过5次不再重试
 		}
 		n := 0
 		for i := len(t.ErrDetails) - 1; i >= 0; i-- {
@@ -74,17 +78,27 @@ func (l *List) RetryFailed() {
 			// 连续的NotFound错误小于2次才重试
 			logx.Infof("[browser] Task[%x] can be retry, last err: %s", t.ID, t.ErrDetails[len(t.ErrDetails)-1].String())
 			t.SetState(StateInit)
+			has = true
 			if t.Parent != nil {
 				t.Parent.Children.offset = 0
 			}
 		}
 	}
+	if has {
+		if len(l.Tasks) > 0 {
+			return l.Tasks[0].Parent
+		}
+		return nil
+	}
 
 	for _, t := range l.Tasks {
 		if t.Children != nil {
-			t.Children.RetryFailed()
+			if p := t.Children.RetryFailed(); p != nil {
+				return p
+			}
 		}
 	}
+	return nil
 }
 
 func (l *List) isSuccessfulAll() bool {

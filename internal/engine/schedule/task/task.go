@@ -17,6 +17,8 @@ type MainCallback func(task *Task, resp *types.ResponseWarp) error
 
 type OnCreated func(task *Task)
 
+type Option func(task *Task)
+
 const (
 	// StateUnknown 0值
 	StateUnknown         = iota // 创建时默认值
@@ -65,7 +67,7 @@ type Task struct {
 	OnCreateHandler OnCreated    `json:"-" gorm:"-"`
 }
 
-func NewTask(name string, parent *Task, url string, fun MainCallback) *Task {
+func NewTask(name string, parent *Task, url string, fun MainCallback, opts ...Option) *Task {
 	t := &Task{
 		ID:         uint64(rand.Uint32()),
 		Name:       name,
@@ -79,6 +81,9 @@ func NewTask(name string, parent *Task, url string, fun MainCallback) *Task {
 		t.Parent = parent
 		t.Domain = parent.Domain
 		t.Depth = parent.Depth + 1
+	}
+	for _, opt := range opts {
+		opt(t)
 	}
 	t.HandleOnCreated()
 	return t
@@ -188,8 +193,10 @@ func (t *Task) HandleOnCreated() {
 	}
 }
 
-func (t *Task) AddOnCreatedHandler(handler OnCreated) {
-	t.OnCreateHandler = handler
+func AddOnCreatedHandler(handler OnCreated) Option {
+	return func(task *Task) {
+		task.OnCreateHandler = handler
+	}
 }
 
 func (t *Task) ListAll() []*Task {
