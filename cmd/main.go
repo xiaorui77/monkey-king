@@ -7,13 +7,14 @@ import (
 	"github.com/xiaorui77/goutils/logx"
 	"github.com/xiaorui77/goutils/logx/hooks"
 	"github.com/xiaorui77/goutils/math"
-	"github.com/xiaorui77/goutils/wait"
 	"github.com/xiaorui77/monker-king/internal/config"
 	"github.com/xiaorui77/monker-king/internal/engine/collector"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/manager"
 	"math/rand"
+	"os"
 	"os/signal"
+	"syscall"
 )
 
 var (
@@ -25,7 +26,7 @@ var (
 var basePath = "./data"
 
 func main() {
-	stopCtx, _ := signal.NotifyContext(context.Background(), wait.ShutdownSignals...)
+	stopCtx, _ := signal.NotifyContext(context.Background(), []os.Signal{os.Interrupt, syscall.SIGTERM}...)
 
 	// option
 	logx.Init("monkey-king", logx.WithInstance("monkey-king-"+math.RandomStr(5, 36)),

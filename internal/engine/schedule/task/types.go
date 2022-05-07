@@ -4,7 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"github.com/xiaorui77/goutils/timeutils"
+	timeutil "github.com/xiaorui77/goutils/time"
 	"time"
 )
 
@@ -57,5 +57,5 @@ type ErrDetail struct {
 
 func (e *ErrDetail) String() string {
 	return fmt.Sprintf("ERR[%d] start:%s cost: %0.1fs msg: %s",
-		e.ErrCode, e.StartTime.Format(timeutils.StampMilli), e.Cost.Seconds(), e.ErrMsg)
+		e.ErrCode, e.StartTime.Format(timeutil.StampMilli), e.Cost.Seconds(), e.ErrMsg)
 }

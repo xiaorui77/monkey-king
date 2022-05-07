@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/xiaorui77/goutils/logx"
-	"github.com/xiaorui77/goutils/timeutils"
+	timeutil "github.com/xiaorui77/goutils/time"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
 	"gorm.io/gorm"
@@ -71,7 +71,10 @@ func (b *Browser) setProcess(ctx context.Context, num int) {
 	if b.processNum < num {
 		for index := b.processNum; index < num; index++ {
 			cancelledCtx, cancel := context.WithCancel(ctx)
-			p := &Process{browser: b, index: index, cancelFn: cancel}
+			p := &Process{
+				browser: b, index: index, cancelFn: cancel,
+				logger: logx.WithFields(logx.Fields{"browser": b.domain, "process": index}),
+			}
 			b.processes = append(b.processes, p)
 			b.wg.Add(1)
 			go func(index int) {
@@ -132,9 +135,9 @@ func (b *Browser) timeout(t *task.Task) (tt time.Duration) {
 	reader, rOk := t.Meta[task.MetaReader].(*fileutil.VisualReader)
 	if ltOk && rOk && lastTimeout > 0 && reader.Cur > 0 && reader.Total > 0 {
 		timeout := lastTimeout * reader.Total / reader.Cur * int64(len(t.ErrDetails)+1)
-		return timeutils.Min(DefaultTimeout+time.Second*time.Duration(timeout), MaxTimeout)
+		return timeutil.Min(DefaultTimeout+time.Second*time.Duration(timeout), MaxTimeout)
 	}
-	return timeutils.Min(DefaultTimeout+time.Second*45*time.Duration(len(t.ErrDetails)), MaxTimeout)
+	return timeutil.Min(DefaultTimeout+time.Second*45*time.Duration(len(t.ErrDetails)), MaxTimeout)
 }
 
 func (b *Browser) close() {
