@@ -81,7 +81,7 @@ func (c *Collector) Visit(rawUrl string) error {
 		logx.Warnf("[collector] new schedule failed with parse url(%v): %v", rawUrl, err)
 		return err
 	}
-	return c.visit(nil, rawUrl, true)
+	return c.visit(nil, "", rawUrl, true)
 }
 
 // Download 下载保存, todo: 移动到parsing中
@@ -94,12 +94,12 @@ func (c *Collector) Download(t *task.Task, name, path string, urlRaw string) err
 		SetPriority(1).SetMeta(task.MetaSavePath, path).SetMeta("save_name", name))
 }
 
-func (c *Collector) visit(parent *task.Task, url string, resetDepth bool) error {
+func (c *Collector) visit(parent *task.Task, name, url string, resetDepth bool) error {
 	if err := c.filter(url); err != nil {
 		logx.Warnf("[collector] filter url(%s) cause by: %v", url, err)
 		return err
 	}
-	t := task.NewTask("", parent, url, c.parsing, task.AddOnCreatedHandler(
+	t := task.NewTask(name, parent, url, c.parsing, task.AddOnCreatedHandler(
 		func(task *task.Task) {
 			if resetDepth {
 				task.Depth = 0

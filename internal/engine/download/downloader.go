@@ -42,11 +42,12 @@ func NewDownloader() *Downloader {
 					Timeout:   15 * time.Second,
 					KeepAlive: 10 * time.Second,
 				}).DialContext,
-				ForceAttemptHTTP2:   true,
-				TLSHandshakeTimeout: 15 * time.Second,
-				IdleConnTimeout:     60 * time.Second,
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
+				ForceAttemptHTTP2:     true,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   10,
+				IdleConnTimeout:       60 * time.Second,
+				TLSHandshakeTimeout:   15 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
 			},
 		},
 	}
@@ -57,7 +58,7 @@ func NewDownloader() *Downloader {
 func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp, error.Error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.Url, nil)
 	if err != nil {
-		logx.Errorf("[downloader] request.Get failed: %v")
+		logx.Errorf("[downloader] Task[%08x] request.Get failed: %v", t.ID, err)
 		return nil, &error.Err{Err: err, Code: task.ErrNewRequest}
 	}
 	reqWrap := &types.RequestWarp{
@@ -66,11 +67,13 @@ func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp
 	}
 	d.beforeReq(req)
 
+	logx.Debugf("[downloader] Task[%08x] request.Do header: %v", t.ID, req.Header)
 	resp, err := d.client.Do(req)
 	if err != nil {
-		logx.Warnf("[downloader] request.Do failed: %v", err)
+		logx.Warnf("[downloader] Task[%08x] request.Do failed: %v", t.ID, err)
 		return nil, &error.Err{Code: task.ErrDoRequest, Err: err}
 	}
+	logx.Debugf("[downloader] Task[%08x] request done, response header: %v", t.ID, resp.Header)
 
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -84,8 +87,9 @@ func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp
 	body, err := reader.ReadAll()
 	if err != nil {
 		t.SetMeta(task.MetaReader, reader) // convention：如果有错误，则记录reader
-		return nil, &error.Err{Code: task.ErrReadRespBody,
-			Err: fmt.Errorf("reading resp.Body when[%v/%v] failed: %v", reader.Cur, reader.Total, err),
+		return nil, &error.Err{
+			Code: task.ErrReadRespBody,
+			Err:  fmt.Errorf("reading resp.Body when[%v/%v] failed: %v", reader.Cur, reader.Total, err),
 		}
 	}
 
@@ -98,6 +102,9 @@ func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp
 
 func (d *Downloader) beforeReq(req *http.Request) {
 	req.Header.Set(utils.UserAgentKey, utils.RandomUserAgent())
+
+	req.Header.Set("accept-encoding", "")
+	req.Header.Set("accept-language", "zh-CN,zh;q=0.9")
 
 	// TODO: 待设定
 	// req.Close = true

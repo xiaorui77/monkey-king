@@ -3,6 +3,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	timeutil "github.com/xiaorui77/goutils/time"
 	"github.com/xiaorui77/monker-king/internal/engine/types"
 	"math/rand"
 	"time"
@@ -119,6 +120,7 @@ func (t *Task) SetState(state int) {
 	switch t.State {
 	case StateRunning:
 		t.StartTime = time.Now()
+		t.EndTime = timeutil.Zero
 	case StateSuccessful:
 		if t.State >= StateSuccessful {
 			t.EndTime = time.Now()

@@ -51,12 +51,12 @@ func main() {
 
 	// 每页内所有单元
 	engine.OnHTMLAny(pageRe, func(t *task.Task, ele *collector.HTMLElement) {
-		_ = ele.Visit(ele.Attr[0].Val, false)
+		_ = ele.Visit(ele.Attr[1].Val, ele.Attr[0].Val, false)
 	})
 
 	// 下个页
 	engine.OnHTMLAny(pagingRe, func(t *task.Task, ele *collector.HTMLElement) {
-		_ = ele.Visit(ele.Attr[0].Val, true)
+		_ = ele.Visit(ele.Attr[0].Val, ele.Attr[0].Val, true)
 	})
 
 	// ui
