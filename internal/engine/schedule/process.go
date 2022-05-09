@@ -21,7 +21,6 @@ func (p *Process) run(ctx context.Context) {
 		if err := recover(); err != nil {
 			logx.Errorf("[scheduler] Browser[%s] process[%d] has panic and recover: %v", p.browser.domain, p.index, err)
 		}
-		p.cancelFn()
 	}()
 
 	logx.Infof("[scheduler] Browser[%s] Process[%d] has already started...", p.browser.domain, p.index)
@@ -42,11 +41,11 @@ func (p *Process) process(ctx context.Context) {
 	logger := p.logger.WithField("index", p.index)
 	t := p.browser.next()
 	if t == nil {
-		logger.Debugf("[process-%d] no found tasks", p.index)
+		logger.Debugf("[scheduler] Browser[%s] [process-%d] no found tasks", p.browser.domain, p.index)
 		return
 	}
 	timeout := p.browser.timeout(t)
-	logx.Infof("[process-%d] Task[%x] begin run, timeout: %0.1fs, url: %s", p.index, t.ID, timeout.Seconds(), t.Url)
+	logger.Infof("[scheduler] Browser[%s] [process-%d] Task[%x] begin run, timeout: %0.1fs, url: %s", p.browser.domain, p.index, t.ID, timeout.Seconds(), t.Url)
 	p.browser.recordStart(t)
 
 	// 设置超时并使用GET进行请求

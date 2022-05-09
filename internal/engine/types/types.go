@@ -8,17 +8,17 @@ import (
 type ResponseWarp struct {
 	StatusCode int
 	Body       []byte
-	Request    *RequestWarp
+	Request    *RequestWrap
 }
 
-type RequestWarp struct {
+type RequestWrap struct {
 	URL     *url.URL
 	Method  string
 	BaseURL *url.URL
 }
 
-// AbsoluteURL 根据相对路径获取完整url
-func (r *RequestWarp) AbsoluteURL(u string) string {
+// AbsoluteURL return the absolute url according to the relative path.
+func (r *RequestWrap) AbsoluteURL(u string) string {
 	if strings.HasPrefix(u, "#") {
 		return ""
 	}

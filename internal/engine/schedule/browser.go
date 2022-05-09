@@ -9,6 +9,7 @@ import (
 	"github.com/xiaorui77/monker-king/internal/utils/fileutil"
 	"gorm.io/gorm"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,7 +24,7 @@ type Browser struct {
 	numCh chan int
 
 	domain     string
-	processNum int
+	processNum int32
 	processes  []*Process
 
 	MaxDepth int        // 最大层级, 包括下一页等
@@ -57,7 +58,7 @@ func (b *Browser) boot(ctx context.Context) {
 			return
 		case num := <-b.numCh:
 			b.setProcess(ctx, num)
-		case <-time.Tick(time.Second * 20):
+		case <-time.Tick(time.Second * 60):
 			logx.Debugf("[scheduler] The Browser[%s] run retryFailed", b.domain)
 			b.retryFailed()
 		}
@@ -68,32 +69,31 @@ func (b *Browser) setProcess(ctx context.Context, num int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	logx.Infof("[scheduler] Browser[%s] set processNum: %d to %d", b.domain, b.processNum, num)
-	if b.processNum < num {
-		for index := b.processNum; index < num; index++ {
-			cancelledCtx, cancel := context.WithCancel(ctx)
+	if b.processNum < int32(num) {
+		for index := b.processNum; index < int32(num); index++ {
+			processCtx, cancelFn := context.WithCancel(ctx)
 			p := &Process{
-				browser: b, index: index, cancelFn: cancel,
-				logger: logx.WithFields(logx.Fields{"browser": b.domain, "process": index}),
+				browser: b, index: int(index), cancelFn: cancelFn,
+				logger: logx.WithFields(logx.Fields{"catalog": "scheduler", "browser": b.domain, "process": index}),
 			}
 			b.processes = append(b.processes, p)
 			b.wg.Add(1)
-			go func(index int) {
+			go func() {
 				defer func() {
-					b.mu.Lock()
-					defer b.mu.Unlock()
+					p.cancelFn()
 					b.wg.Done()
-					b.processNum--
+					atomic.AddInt32(&b.processNum, -1)
 				}()
-				p.run(cancelledCtx)
-			}(index)
+				p.run(processCtx)
+			}()
 		}
-	} else if b.processNum > num {
+	} else if b.processNum > int32(num) {
 		// 调用cancel函数结束running
-		for index := b.processNum - 1; index >= num; index-- {
+		for index := b.processNum - 1; index >= int32(num); index-- {
 			b.processes[index].cancelFn()
 		}
 	}
-	b.processNum = num
+	b.processNum = int32(num)
 }
 
 func (b *Browser) SetProcess(num int) {
@@ -214,5 +214,5 @@ func (b *Browser) MarshalJSON() ([]byte, error) {
 		Name       string     `json:"name"`
 		ProcessNum int        `json:"processNum"`
 		Children   *task.List `json:"children"`
-	}{Id: 0, Name: b.domain, ProcessNum: b.processNum, Children: b.taskList})
+	}{Id: 0, Name: b.domain, ProcessNum: int(b.processNum), Children: b.taskList})
 }

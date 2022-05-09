@@ -11,7 +11,7 @@ import (
 type HTMLElement struct {
 	task      *task.Task
 	Collector *Collector
-	Request   *types.RequestWarp
+	Request   *types.RequestWrap
 	Response  *types.ResponseWarp
 
 	Doc   *goquery.Document

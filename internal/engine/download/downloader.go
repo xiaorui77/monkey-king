@@ -58,19 +58,19 @@ func NewDownloader() *Downloader {
 func (d *Downloader) Get(ctx context.Context, t *task.Task) (*types.ResponseWarp, error.Error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.Url, nil)
 	if err != nil {
-		logx.Errorf("[downloader] Task[%08x] request.Get failed: %v", t.ID, err)
+		logx.Errorf("[downloader] Task[%08x] new request failed: %v", t.ID, err)
 		return nil, &error.Err{Err: err, Code: task.ErrNewRequest}
 	}
-	reqWrap := &types.RequestWarp{
+	reqWrap := &types.RequestWrap{
 		URL:     req.URL,
 		BaseURL: req.URL,
 	}
 	d.beforeReq(req)
 
-	logx.Debugf("[downloader] Task[%08x] request.Do header: %v", t.ID, req.Header)
+	logx.Debugf("[downloader] Task[%08x] send request, header: %v", t.ID, req.Header)
 	resp, err := d.client.Do(req)
 	if err != nil {
-		logx.Warnf("[downloader] Task[%08x] request.Do failed: %v", t.ID, err)
+		logx.Warnf("[downloader] Task[%08x] do request failed: %v", t.ID, err)
 		return nil, &error.Err{Code: task.ErrDoRequest, Err: err}
 	}
 	logx.Debugf("[downloader] Task[%08x] request done, response header: %v", t.ID, resp.Header)

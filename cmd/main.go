@@ -11,6 +11,7 @@ import (
 	"github.com/xiaorui77/monker-king/internal/engine/collector"
 	"github.com/xiaorui77/monker-king/internal/engine/schedule/task"
 	"github.com/xiaorui77/monker-king/internal/manager"
+	"github.com/xiaorui77/monker-king/internal/utils/logx_hooks"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -31,7 +32,8 @@ func main() {
 	// option
 	logx.Init("monkey-king", logx.WithInstance("monkey-king-"+math.RandomStr(5, 36)),
 		logx.WithLevel(logx.DebugLevel), logx.WithReportCaller(true),
-		logx.WithHook(hooks.NewEsHook("http://192.168.17.1:9200")))
+		logx.WithHook(hooks.NewEsHook("http://192.168.17.1:9200")),
+		logx.WithHook(logx_hooks.NewPostFormat()))
 
 	conf := config.InitConfig()
 	engine, err := collector.NewCollector(conf)
